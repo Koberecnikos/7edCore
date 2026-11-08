@@ -10,6 +10,7 @@ RUN mkdir -p /opt/steamcmd \
     && curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz -C /opt/steamcmd \
     && chown -R 1000:1000 /opt/steamcmd
 COPY --chown=1000:1000 app /app
+RUN printf '#!/bin/sh\nexec python3 /app/ctl.py "$@"\n' > /usr/local/bin/7edcore && chmod 755 /usr/local/bin/7edcore
 USER 1000:1000
 ENV HOME=/data/home DATA_DIR=/data STEAMCMD=/opt/steamcmd/steamcmd.sh PANEL_PORT=8120 \
     SEVENEDCORE_VERSION=${VERSION} SEVENEDCORE_REPO=Koberecnikos/7edCore PYTHONUNBUFFERED=1

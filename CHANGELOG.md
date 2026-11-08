@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 - unreleased
+## 1.0.0 - 2026-11-08
 
 First public release.
 
@@ -13,3 +13,5 @@ First public release.
 - Per-server quick actions, scheduler with in-game warnings, RAM limit, CPU pinning
 - English + Czech UI, first-run password setup, 1-year sessions
 - Docker image on GHCR, one-line installer, self-update via the host updater
+- `7edcore` command line (status, save, stop-all, resume, …) for scripts and UPS software
+- Graceful saves on shutdown on any machine; battery handling (7edcore-powerwatch) for laptops / mini PCs; NUT and apcupsd examples

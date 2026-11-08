@@ -16,7 +16,7 @@ from .instance import DEFAULT_SETTINGS, CompatError, validate_schedule
 from .configmeta import catalog
 from .presets import PRESETS
 from .steam import check_branch
-from .util import (DATA, INST_ROOT, PANEL_DIR, VERSIONS_DIR, dir_size, get_prop, read_config_props, rel, safe_extract,
+from .util import (DATA, load_json, INST_ROOT, PANEL_DIR, VERSIONS_DIR, dir_size, get_prop, read_config_props, rel, safe_extract,
                    safe_path, save_json, write_config_props)
 
 HUB = None
@@ -844,7 +844,87 @@ async def h_files_op(request):
     return ok()
 
 
+# ------------------------------------------------------------------ local API (7edcore command line, power/UPS hooks)
+POWER_FILE = PANEL_DIR / "power.json"
+
+
+async def h_local_status(request):
+    return web.json_response({"version": __import__("sevenedcore").__version__, "servers": [
+        {"id": i.id, "name": i.name, "state": i.state, "players": len(i.players), "game": i.game_version_label(),
+         "branch": i.branch, "port": get_prop(i.cfg, "ServerPort"), "pending": i.pending_what}
+        for i in (HUB.instances[x] for x in HUB.order)],
+        "power_stopped": load_json(POWER_FILE, {}).get("stopped", [])})
+
+
+async def h_local_save(request):
+    saved = []
+    for i in HUB.instances.values():
+        if i.state == "running" and i.tw:
+            try:
+                await i.command("saveworld", timeout=30)
+                i.note("World saved (7edcore save)")
+                saved.append(i.id)
+            except web.HTTPException as e:
+                i.note(f"Save failed: {e.text}")
+    return ok(saved=saved)
+
+
+async def h_local_stop_all(request):
+    reason = (await request.json() if request.can_read_body else {}).get("reason") or "7edcore stop-all"
+    running = [i for i in HUB.instances.values() if i.running()]
+    prev = load_json(POWER_FILE, {}).get("stopped", [])
+    save_json(POWER_FILE, {"stopped": sorted(set(prev) | {i.id for i in running}), "reason": reason})
+    for i in running:
+        await i.say("Server is shutting down (power), saving the world...", "FF4444")
+    await asyncio.gather(*(i.stop(user=False, reason=reason) for i in running), return_exceptions=True)
+    return ok(stopped=[i.id for i in running])
+
+
+async def h_local_resume(request):
+    ids = load_json(POWER_FILE, {}).get("stopped", [])
+    started, failed = [], {}
+    for iid in ids:
+        i = HUB.instances.get(iid)
+        if not i or i.running():
+            continue
+        try:
+            await i.start(reason="resume")
+            started.append(iid)
+        except CompatError as e:
+            failed[iid] = e.message
+        except web.HTTPException as e:
+            failed[iid] = e.text
+    save_json(POWER_FILE, {"stopped": list(failed)})
+    return ok(started=started, failed=failed)
+
+
+async def h_local_server(request):
+    i = inst_of(request)
+    act = request.match_info["act"]
+    if act == "start":
+        await i.start(reason="7edcore command")
+    elif act == "stop":
+        await i.stop(user=True, reason="7edcore command")
+    elif act == "restart":
+        await i.restart(reason="7edcore command")
+    else:
+        raise web.HTTPNotFound()
+    return ok(state=i.state)
+
+
+async def h_local_update(request):
+    selfupdate.request()
+    return ok()
+
+
 def routes(app):
+    r0 = app.router
+    r0.add_get("/api/local/status", h_local_status)
+    r0.add_post("/api/local/save", h_local_save)
+    r0.add_post("/api/local/stop-all", h_local_stop_all)
+    r0.add_post("/api/local/resume", h_local_resume)
+    r0.add_post("/api/local/request-update", h_local_update)
+    r0.add_post("/api/local/s/{iid}/{act}", h_local_server)
     r = app.router
     r.add_get("/api/overview", h_overview)
     r.add_get("/api/presets", h_presets)

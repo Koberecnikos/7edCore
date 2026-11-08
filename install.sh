@@ -35,15 +35,33 @@ else
   [ -n "$tz" ] && echo "TZ=$tz" > "$DIR/.env"
 fi
 curl -fsSL "$RAW/deploy/7edcore-update" -o /usr/local/bin/7edcore-update
-chmod +x /usr/local/bin/7edcore-update
+curl -fsSL "$RAW/deploy/7edcore" -o /usr/local/bin/7edcore
+chmod +x /usr/local/bin/7edcore-update /usr/local/bin/7edcore
+# containers need time to save the game servers when the host shuts down
+mkdir -p /etc/systemd/system/docker.service.d
+curl -fsSL "$RAW/deploy/docker-stop-timeout.conf" -o /etc/systemd/system/docker.service.d/7edcore-stop-timeout.conf
 curl -fsSL "$RAW/deploy/7edcore-update.service" -o /etc/systemd/system/7edcore-update.service
 curl -fsSL "$RAW/deploy/7edcore-update.timer" -o /etc/systemd/system/7edcore-update.timer
 if [ "$DIR" != /opt/7edcore ]; then
   mkdir -p /etc/systemd/system/7edcore-update.service.d
   printf '[Service]\nEnvironment=SEVENEDCORE_DIR=%s\n' "$DIR" > /etc/systemd/system/7edcore-update.service.d/dir.conf
 fi
+# power-loss handling for machines with a battery (laptop, mini PC with built-in UPS)
+POWERWATCH="${SEVENEDCORE_POWERWATCH:-auto}"
+if [ "$POWERWATCH" = auto ]; then
+  POWERWATCH=0
+  grep -qsx Mains /sys/class/power_supply/*/type && grep -qsx Battery /sys/class/power_supply/*/type && POWERWATCH=1
+fi
+if [ "$POWERWATCH" = 1 ]; then
+  say "battery detected - enabling power-loss handling (7edcore-powerwatch)"
+  curl -fsSL "$RAW/deploy/power/7edcore-powerwatch" -o /usr/local/bin/7edcore-powerwatch
+  chmod +x /usr/local/bin/7edcore-powerwatch
+  curl -fsSL "$RAW/deploy/power/7edcore-powerwatch.service" -o /etc/systemd/system/7edcore-powerwatch.service
+  [ -f /etc/default/7edcore-powerwatch ] || curl -fsSL "$RAW/deploy/power/7edcore-powerwatch.default" -o /etc/default/7edcore-powerwatch
+fi
 systemctl daemon-reload
 systemctl enable --now 7edcore-update.timer >/dev/null
+[ "$POWERWATCH" = 1 ] && systemctl enable --now 7edcore-powerwatch.service >/dev/null
 
 say "downloading and starting 7edCore…"
 cd "$DIR"
@@ -59,6 +77,12 @@ if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
   ufw allow from 100.64.0.0/10 to any port 8120 proto tcp >/dev/null
 fi
 
+if command -v firewall-cmd >/dev/null && firewall-cmd --state >/dev/null 2>&1; then
+  say "opening game ports in firewalld (26900-26939 tcp/udp)"
+  firewall-cmd -q --permanent --add-port=26900-26939/tcp --add-port=26900-26939/udp
+  firewall-cmd -q --reload
+fi
+
 ips=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9.]+$' | head -3)
 echo
 say "done. Open the panel and choose the admin password:"
@@ -66,5 +90,5 @@ for ip in $ips; do echo "    http://$ip:8120"; done
 echo
 echo "  data:     $DIR/data"
 echo "  updates:  automatic (change in the panel: Panel → 7edCore updates)"
-echo "  logs:     docker logs -f 7edcore"
+echo "  command:  7edcore status | save | stop-all | resume | update | logs"
 echo "  game:     forward 26900-26903 TCP+UDP on your router for server 1 (26910… for server 2)"

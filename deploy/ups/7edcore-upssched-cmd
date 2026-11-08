@@ -1,0 +1,7 @@
+#!/bin/sh
+# Called by upssched (NUT) with the timer name - see nut-upssched.conf
+case "$1" in
+  save)    /usr/local/bin/7edcore save ;;
+  stopall) /usr/local/bin/7edcore stop-all "UPS on battery" ;;
+  resume)  /usr/local/bin/7edcore resume ;;
+esac

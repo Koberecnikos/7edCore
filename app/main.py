@@ -21,6 +21,7 @@ def main():
     for d in (PANEL_DIR, INST_ROOT, VERSIONS_DIR, DATA / "home"):
         d.mkdir(parents=True, exist_ok=True)
     auth.init()
+    auth.init_local_token()
     hub = Hub()
     hub.load()
     api.HUB = hub

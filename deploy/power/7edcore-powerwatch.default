@@ -1,0 +1,7 @@
+# 7edcore-powerwatch settings (seconds / percent). Restart the service after editing:
+#   systemctl restart 7edcore-powerwatch
+SAVE_AFTER=60          # save all worlds after this long on battery
+STOP_AFTER=300         # save and stop all game servers after this long on battery
+RESUME_AFTER=60        # start them again when AC has been back this long
+CRITICAL=15            # battery percent that triggers CRITICAL_ACTION
+CRITICAL_ACTION=suspend   # none | suspend | poweroff

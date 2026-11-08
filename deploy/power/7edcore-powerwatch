@@ -1,0 +1,58 @@
+#!/bin/bash
+# 7edcore-powerwatch - power-loss handling for machines with a battery (laptops, mini PCs with a
+# built-in UPS). Uses the AC adapter and battery state from /sys/class/power_supply.
+#   on battery for SAVE_AFTER s  -> 7edcore save
+#   on battery for STOP_AFTER s  -> 7edcore stop-all  (remembered across reboots)
+#   battery <= CRITICAL %        -> stop-all, then CRITICAL_ACTION (none | suspend | poweroff)
+#   AC back for RESUME_AFTER s   -> 7edcore resume
+# Settings: /etc/default/7edcore-powerwatch
+set -u
+[ -f /etc/default/7edcore-powerwatch ] && . /etc/default/7edcore-powerwatch
+SAVE_AFTER=${SAVE_AFTER:-60}
+STOP_AFTER=${STOP_AFTER:-300}
+RESUME_AFTER=${RESUME_AFTER:-60}
+CRITICAL=${CRITICAL:-15}
+CRITICAL_ACTION=${CRITICAL_ACTION:-suspend}
+INTERVAL=${INTERVAL:-5}
+CLI=${CLI:-/usr/local/bin/7edcore}
+
+log() { echo "powerwatch: $*"; }
+mains=() bats=()
+for d in "${PS_DIR:-/sys/class/power_supply}"/*; do
+  case "$(cat "$d/type" 2>/dev/null)" in
+    Mains) mains+=("$d") ;;
+    Battery) [ "$(cat "$d/scope" 2>/dev/null)" = Device ] || bats+=("$d") ;;
+  esac
+done
+[ ${#mains[@]} -gt 0 ] || { log "no AC adapter found - nothing to watch"; exit 0; }
+
+on_ac() { local d; for d in "${mains[@]}"; do [ "$(cat "$d/online" 2>/dev/null)" = 1 ] && return 0; done; return 1; }
+capacity() { local d c=100; for d in "${bats[@]}"; do c=$(cat "$d/capacity" 2>/dev/null || echo 100); done; echo "$c"; }
+run() { log "$*"; "$CLI" "$@" || log "'$*' failed (exit $?)"; }
+
+state=ac since=$(date +%s) saved=0 stopped=0 critical=0 resume_pending=1
+log "watching ${mains[*]} (battery: ${bats[*]:-none}); save ${SAVE_AFTER}s, stop ${STOP_AFTER}s, critical ${CRITICAL}% -> $CRITICAL_ACTION"
+while sleep "$INTERVAL"; do
+  now=$(date +%s)
+  if on_ac; then
+    if [ "$state" != ac ]; then log "AC power is back"; state=ac since=$now; fi
+    if [ $resume_pending = 1 ] && [ $((now - since)) -ge "$RESUME_AFTER" ]; then
+      run resume; resume_pending=0 saved=0 stopped=0 critical=0
+    fi
+  else
+    if [ "$state" != battery ]; then log "running on battery"; state=battery since=$now saved=0; fi
+    resume_pending=1
+    t=$((now - since)) cap=$(capacity)
+    [ $saved = 0 ] && [ $t -ge "$SAVE_AFTER" ] && { run save; saved=1; }
+    [ $stopped = 0 ] && [ $t -ge "$STOP_AFTER" ] && { run stop-all "power loss"; stopped=1; }
+    if [ $critical = 0 ] && [ "$cap" -le "$CRITICAL" ]; then
+      critical=1
+      log "battery at ${cap}%"
+      [ $stopped = 0 ] && { run stop-all "battery critical"; stopped=1; }
+      case "$CRITICAL_ACTION" in
+        suspend)  log "suspending"; systemctl suspend ;;
+        poweroff) log "powering off"; systemctl poweroff ;;
+      esac
+    fi
+  fi
+done

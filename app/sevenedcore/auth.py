@@ -86,9 +86,26 @@ def _private(ip):
 PUBLIC = ("/api/login", "/api/session", "/api/setup")
 
 
+LOCAL_TOKEN_FILE = PANEL_DIR / "local.token"
+LOCAL_TOKEN = None
+
+
+def init_local_token():
+    """Token for the `7edcore` command line tool inside the container (docker exec)."""
+    global LOCAL_TOKEN
+    LOCAL_TOKEN = secrets.token_urlsafe(32)
+    LOCAL_TOKEN_FILE.write_text(LOCAL_TOKEN)
+    os.chmod(LOCAL_TOKEN_FILE, 0o600)
+
+
 @web.middleware
 async def middleware(request, handler):
     path = request.path
+    if path.startswith("/api/local/"):
+        tok = request.headers.get("X-7edCore-Local", "")
+        if not LOCAL_TOKEN or request.remote not in ("127.0.0.1", "::1") or not secrets.compare_digest(tok, LOCAL_TOKEN):
+            raise web.HTTPForbidden(text="Local API: use the 7edcore command inside the container")
+        return await handler(request)
     if path.startswith("/api/") and request.method != "GET" and request.headers.get("X-Requested-With") != "7edcore":
         raise web.HTTPForbidden(text="CSRF check failed")
     if path.startswith("/api/") and path not in PUBLIC:

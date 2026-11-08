@@ -1,0 +1,13 @@
+#!/bin/sh
+# 7edCore host command - forwards to the panel inside the container.
+#   7edcore status | save | stop-all | resume | start|stop|restart ID | update | logs
+C=${SEVENEDCORE_CONTAINER:-7edcore}
+case "$1" in
+  update) docker exec "$C" 7edcore request-update >/dev/null && systemctl start 7edcore-update.service
+          exec cat "${SEVENEDCORE_DIR:-/opt/7edcore}/data/panel/updater.json" ;;
+  logs)   exec docker logs -f --tail 200 "$C" ;;
+esac
+if ! docker inspect -f '{{.State.Running}}' "$C" 2>/dev/null | grep -q true; then
+  echo "7edcore: container '$C' is not running" >&2; exit 2
+fi
+exec docker exec "$C" 7edcore "$@"

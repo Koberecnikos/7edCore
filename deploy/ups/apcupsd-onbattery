@@ -1,0 +1,7 @@
+#!/bin/sh
+# apcupsd example - copy to /etc/apcupsd/onbattery (and offbattery / doshutdown variants below).
+#   onbattery:  save now, stop all game servers if still on battery after 5 minutes
+#   offbattery: /usr/local/bin/7edcore resume
+#   doshutdown: /usr/local/bin/7edcore stop-all "UPS battery low"   (before apcupsd powers off)
+/usr/local/bin/7edcore save
+( sleep 300; apcaccess -p STATUS | grep -q ONBATT && /usr/local/bin/7edcore stop-all "UPS on battery" ) &

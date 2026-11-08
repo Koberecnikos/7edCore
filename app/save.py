@@ -39,5 +39,11 @@ def save(cfg_path):
     return port
 
 
-done = [p for p in (save(c) for c in sorted(glob.glob(f"{DATA}/instances/*/config/serverconfig.xml"))) if p]
-print(f"saveworld sent to telnet ports: {done}" if done else "no server is running - nothing to save")
+def save_all():
+    """Direct telnet fallback - works even when the panel process is not responding."""
+    return [p for p in (save(c) for c in sorted(glob.glob(f"{DATA}/instances/*/config/serverconfig.xml"))) if p]
+
+
+if __name__ == "__main__":
+    done = save_all()
+    print(f"saveworld sent to telnet ports: {done}" if done else "no server is running - nothing to save")

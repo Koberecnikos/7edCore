@@ -36,6 +36,7 @@ Several servers on one machine, each with its own game version, mods, backups an
 - **Resources.** RAM limit (warn or restart gracefully), CPU core pinning, crash auto-restart, and a file manager with an editor.
 - **Interface.** English and Czech. Logins are remembered for a year, and you set the password on first run.
 - **Self-updating.** When a new 7edCore release is published, your server updates itself, but only when nobody is playing.
+- **Safe shutdowns and power loss.** Game servers are saved and stopped on shutdown and resumed afterwards. A `7edcore` command line plugs into UPS software, and laptops and mini PCs get battery handling out of the box.
 
 <p align="center"><img src="docs/screenshot-overview.jpg" width="49%"> <img src="docs/screenshot-settings.jpg" width="49%"></p>
 
@@ -51,7 +52,10 @@ The installer does the following:
 - installs Docker if it is missing;
 - creates `/opt/7edcore` with `compose.yaml` and a `data/` folder;
 - starts the panel;
-- enables the 7edCore updater (a systemd timer).
+- enables the 7edCore updater (a systemd timer);
+- installs the `7edcore` command;
+- enables battery handling if the machine has a battery;
+- opens the game ports in ufw or firewalld if either is active.
 
 When it finishes, open `http://<server-ip>:8120` and choose the admin password. The game itself is downloaded from the panel through SteamCMD.
 
@@ -74,6 +78,46 @@ If you skip the updater, update by hand with `docker compose pull && docker comp
 | **7edCore** | The host updater checks for a new image every 6 hours. It restarts the panel only when nobody is online. Before the restart, every game server is saved and stopped, and servers that were running start again afterwards. You can set this to *auto*, *notify* or *off* under **Panel → 7edCore updates**, or use **Update now**. |
 | **Game** | Set per server under **Automation → Updates**. Major versions always need you to confirm. |
 | **Mods** | Set per server under **Automation → Updates**, or use **Quick actions → Update mods**. |
+
+## Command line
+
+`install.sh` adds a `7edcore` command on the host, for scripts, cron jobs and UPS software. Inside the container the same command is available as `docker exec 7edcore 7edcore …`.
+
+```
+7edcore status [--json]        servers, state, players, game version
+7edcore save                   save the world of every running server (no restart)
+7edcore stop-all [reason]      save and stop every running server, remember which ones
+7edcore resume                 start the servers that stop-all stopped
+7edcore start|stop|restart ID  one server (ID from status)
+7edcore update                 update 7edCore now
+7edcore logs                   follow the panel log
+```
+
+Exit codes: `0` means OK, `1` means error, `2` means the panel is not running. `save` still works when the panel is not responding, because it falls back to sending `saveworld` directly to each game server.
+
+## Shutdown, power loss and UPS
+
+7edCore runs the same on a rack server, a desktop PC, a mini PC or a laptop. What happens on shutdown and power loss depends on the hardware.
+
+**Every machine (no extra setup).** On a normal shutdown, reboot or `docker compose down`, the panel saves and stops every game server before it exits. The container gets 5 minutes for this, and `install.sh` raises the Docker service stop timeout to match. When the machine comes back, servers that were running start again. You can change that per server under **Automation → Start with the panel**.
+
+**Machines with a battery** (laptops, mini PCs with a built-in UPS). `install.sh` detects the AC adapter and the battery and enables `7edcore-powerwatch`, a small systemd service:
+
+| Event | Action |
+|---|---|
+| on battery for 60 s | `7edcore save` |
+| on battery for 5 min | `7edcore stop-all` (saved and stopped, remembered across reboots) |
+| battery at 15 % | stop-all, then suspend (configurable: `none`, `suspend`, `poweroff`) |
+| AC back for 60 s | `7edcore resume` |
+
+The settings are in `/etc/default/7edcore-powerwatch`. To force it on or off when installing, use `SEVENEDCORE_POWERWATCH=1` or `0`.
+
+**Servers with an external UPS.** Hook your UPS software into the same commands. Examples are in [`deploy/ups`](deploy/ups):
+
+- **Network UPS Tools (NUT).** `upssched` timers save after 60 s on battery, run `stop-all` after 5 minutes or on low battery, and `resume` when power is back. Install `nut-upssched.conf` as `/etc/nut/upssched.conf` and `7edcore-upssched-cmd` as `/usr/local/bin/7edcore-upssched-cmd`.
+- **apcupsd.** `onbattery` saves, then runs `stop-all` if still on battery after 5 minutes. `offbattery` runs `resume`. `doshutdown` runs `stop-all`.
+
+Keep the UPS host shutdown later than `stop-all`, so the game servers are already saved when the machine powers off.
 
 ## Data layout
 
