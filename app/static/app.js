@@ -354,6 +354,7 @@ function quickActions() {
       <button data-q="backup">🗄 ${t("qa.backup")}</button>
       <button data-q="say"${run ? "" : " disabled"}>💬 ${t("qa.say")}</button>
       <button data-q="check">🔎 ${t("qa.check")}</button>
+      <label class="check admin-only" title="${esc(t("as.hint"))}"><input type="checkbox" id="qaAutostart"${(st.autostart || "last") !== "off" ? " checked" : ""}> ${esc(t("as.label"))}</label>
       ${st.web_map ? `<a class="btn" href="${esc(webMapUrl(st))}" target="_blank" rel="noopener"><button type="button"${run ? "" : ` disabled title="${esc(t("map.offline"))}"`}>🗺 ${t("map.open")}</button></a>`
         : `<button data-q="webmap" class="admin-only" title="${esc(t("map.enableHint"))}">🗺 ${t("map.enable")}</button>`}
     </div>
@@ -366,6 +367,10 @@ function quickActions() {
       <button data-q="update_all"${n.game_update || n.mods?.length ? ' class="primary"' : ""}>⏫ ${t("qa.updAll")}</button>
     </div></div>`).firstChild;
   $("#qaMin", box).onchange = (e) => { QA_MIN = e.target.value; };
+  $("#qaAutostart", box).onchange = async (e) => {
+    const v = e.target.checked ? "always" : "off";
+    if (await act(() => api("POST", sp("/settings"), { autostart: v }), t(e.target.checked ? "as.on" : "as.off"))) { S.status.autostart = v; }
+  };
   $$("[data-q]", box).forEach((b) => b.onclick = async () => {
     const q = b.dataset.q, minutes = Number(QA_MIN);
     if (q === "backup") return act(() => api("POST", sp("/backups/create")), t("ok.queued"));

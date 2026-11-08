@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 - 2026-11-09
+
+- Overview → Quick actions: checkbox "Start automatically when the machine starts" per server
+
 ## 1.5.0 - 2026-11-08
 
 - Game difficulty presets exactly as in the PC game (Scavenger … Insane), taken from the game's own Sandbox presets
