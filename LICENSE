@@ -1,0 +1,192 @@
+7edCore NON-COMMERCIAL ATTRIBUTION LICENSE
+Version 1.0
+
+Copyright (c) 2026 [YOUR FULL NAME OR COMPANY NAME]
+Project: 7edCore
+Original repository: https://github.com/Koberecnikos/7edCore
+Licensor: Adam Žák
+Commercial licensing contact: adam.zak.2002@gmail.com
+
+IMPORTANT: This is a custom, source-available license. It is not an OSI-approved
+Open Source license and is not one of GitHub's standard license presets.
+
+1. DEFINITIONS
+
+"Software" means the 7edCore software, including source code, object code,
+scripts, configuration files, documentation, and other materials, to the extent
+that those materials are owned by the Licensor and are distributed with this
+License. Software does not include Third-Party Materials as defined below.
+
+"Original Work" means the Software as first published by the Licensor.
+
+"Derivative Work" means a work based on or incorporating all or a substantial
+part of the Software, including a modified version, fork, port, translation,
+or adaptation.
+
+"Distribution" means making the Software or a Derivative Work available to
+another person, whether by publishing, transferring, hosting, providing a
+download, or otherwise supplying a copy.
+
+"Non-Commercial Purpose" means a purpose that is not primarily intended for
+or directed towards commercial advantage or monetary compensation. Examples
+may include private, personal, hobby, educational, academic, and genuinely
+non-profit community use, provided that the use is not otherwise Commercial
+Use.
+
+"Commercial Use" means any use primarily intended for or directed towards
+commercial advantage or monetary compensation, including, without limitation:
+(a) selling, licensing, renting, or otherwise supplying the Software or a
+    Derivative Work for a fee;
+(b) including or using the Software as part of a product or service offered
+    commercially, whether or not the Software itself is charged for;
+(c) providing the Software or its functionality through a paid hosted service,
+    SaaS offering, subscription, or other commercial service;
+(d) using the Software in the operations of a commercial business to generate
+    revenue, reduce operating costs, or obtain another commercial advantage;
+(e) monetising access to, distribution of, or use of the Software through
+    advertising, sponsorship, affiliate links, paid support, or paid access.
+
+"Licensor" means the copyright holder identified at the top of this License,
+or a person or entity expressly authorised by that copyright holder to grant
+permissions under this License.
+
+"Third-Party Materials" means software, libraries, artwork, fonts, assets, or
+other materials included in or used by the project that are owned by someone
+other than the Licensor and are identified as third-party materials or are
+otherwise subject to separate terms.
+
+2. PERMITTED NON-COMMERCIAL USE
+
+Subject to your continued compliance with this License, the Licensor grants
+you a worldwide, non-exclusive, royalty-free license to:
+(a) use and run the Software for Non-Commercial Purposes;
+(b) inspect and reproduce the Software;
+(c) modify the Software and create Derivative Works, including forks and
+    independent community versions; and
+(d) Distribute unmodified copies and Derivative Works, in source or compiled
+    form, solely for Non-Commercial Purposes and subject to Section 3.
+
+This permission is limited to the rights expressly stated in this License.
+No permission for Commercial Use is granted.
+
+3. CONDITIONS FOR COPYING, FORKING, MODIFICATION, AND DISTRIBUTION
+
+Whenever you copy, modify, fork, or Distribute the Software or a Derivative
+Work, you must comply with all of the following conditions:
+
+(a) Include this complete License with every copy or Distribution of the
+    Software or Derivative Work.
+
+(b) Preserve all copyright notices, attribution notices, and other legal
+    notices present in the Software. Do not remove or obscure them.
+
+(c) Give clear and reasonably prominent credit to the original project and
+    its copyright holder. The credit must state:
+
+        Based on 7edCore by [YOUR FULL NAME OR COMPANY NAME]
+        Original project: [URL OF THE ORIGINAL 7edCore REPOSITORY]
+
+    For a source-code repository, place this credit in its README or an
+    equivalent prominent project documentation file. For a distributed
+    application, also place the credit in an About, Credits, or equivalent
+    screen or bundled documentation where users can reasonably find it.
+    Credit hidden only in commit history, source metadata, or an inaccessible
+    location does not satisfy this requirement.
+
+(d) Clearly identify that you have modified the Software or that your work is
+    a fork or Derivative Work. Include a brief description of material changes
+    where reasonably practicable.
+
+(e) Do not state or imply that the Licensor endorses, sponsors, or is affiliated
+    with your fork, modifications, product, or service without the Licensor's
+    separate written permission.
+
+(f) Distribute the Software and each Derivative Work under this License. You
+    may license your own independent additions under separate terms, but you
+    must not use those terms to remove, restrict, or override the permissions,
+    attribution requirements, or Non-Commercial restrictions that apply to the
+    Software under this License.
+
+(g) Do not impose additional terms or technological restrictions that prevent
+    recipients from exercising the non-commercial permissions granted by this
+    License.
+
+4. COMMERCIAL USE REQUIRES SEPARATE PERMISSION
+
+Commercial Use is strictly prohibited unless the Licensor has granted you
+separate, prior, express written permission.
+
+A request for commercial permission must be directed to:
+[YOUR EMAIL ADDRESS OR CONTACT URL]
+
+Silence, failure to respond, public availability of the repository, acceptance
+of a contribution, or the existence of a public fork does not constitute
+permission for Commercial Use. Any commercial permission may be subject to
+separate fees, conditions, or a separate written license.
+
+5. COPYRIGHT AND OTHER RIGHTS RESERVED
+
+The Software is licensed, not sold. The Licensor retains all copyright and
+other intellectual property rights in the Original Work. All rights not
+expressly granted by this License are reserved.
+
+This License does not grant any right to use the name, logo, branding, or
+trademarks of 7edCore or the Licensor, except for the limited factual
+attribution required by Section 3(c).
+
+6. THIRD-PARTY MATERIALS
+
+Third-Party Materials are not licensed under this License. They remain subject
+to their own copyright notices and license terms. You are responsible for
+identifying and complying with those terms. Nothing in this License grants
+rights to third-party software, game content, trademarks, or other materials
+that the Licensor does not own or have authority to license.
+
+7. TERMINATION
+
+Your permissions under this License terminate automatically if you fail to
+comply with its terms. Upon termination, you must stop the activity that is
+not permitted and stop Distributing copies of the Software or Derivative Work
+until the violation has been remedied and your permissions have been restored
+in writing by the Licensor.
+
+Termination does not affect any rights or remedies the Licensor may have for
+breach of this License. Sections that by their nature should survive
+termination will survive, including Sections 4, 5, 6, 8, and 9.
+
+8. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. THE LICENSOR
+DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE, AVAILABLE, OR
+FIT FOR ANY PARTICULAR USE. YOU ASSUME ALL RISK ARISING FROM THE USE OR
+DISTRIBUTION OF THE SOFTWARE.
+
+9. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, INCLUDING
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES,
+OR LOSS OF DATA, PROFITS, REVENUE, OR BUSINESS INTERRUPTION, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THIS LICENSE, OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE, WHETHER IN CONTRACT, TORT, OR OTHERWISE,
+EVEN IF THE LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+10. GENERAL TERMS
+
+(a) If any provision of this License is held unenforceable, that provision
+    shall be enforced to the maximum extent permitted and the remaining
+    provisions shall remain in effect.
+
+(b) A failure by the Licensor to enforce any provision is not a waiver of the
+    right to enforce that provision later.
+
+(c) This License is the complete statement of the permissions granted for the
+    Software, except for any separate written agreement signed or expressly
+    accepted by the Licensor.
+
+(d) Nothing in this License excludes or limits any rights that cannot lawfully
+    be excluded or limited under applicable law.
+
+END OF LICENSE
