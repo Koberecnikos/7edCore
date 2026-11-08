@@ -11,6 +11,11 @@ Commands:
   resume                  start the servers that stop-all stopped
   start|stop|restart ID   one server (ID as shown by status)
   request-update          ask the host updater to update 7edCore now
+  user list               panel accounts
+  user reset NAME         set a new random password for NAME and print it (lost password)
+  user add NAME [ROLE]    create an account (role admin|operator|viewer, default admin), prints the password
+  user role NAME ROLE     change the role
+  user delete NAME        delete an account
 Exit code 0 = OK, 1 = error, 2 = panel not reachable.
 """
 import json
@@ -85,6 +90,21 @@ def main(argv):
                 return 1
             d = call("POST", f"s/{args[0]}/{cmd}")
             print(f"{args[0]}: {d['state']}")
+        elif cmd == "user":
+            op = args[0] if args else "list"
+            body = {"op": op, "name": args[1] if len(args) > 1 else "", "role": args[2] if len(args) > 2 else None}
+            if op != "list" and not body["name"]:
+                print("usage: 7edcore user list | reset NAME | add NAME [ROLE] | role NAME ROLE | delete NAME", file=sys.stderr)
+                return 1
+            d = call("POST", "users", body)
+            if op == "list":
+                for u in d["users"]:
+                    srv = "all servers" if u["servers"] == "*" else ", ".join(u["servers"]) or "no servers"
+                    print(f"  {u['name']:<20} {u['role']:<9} {srv}")
+            elif "password" in d:
+                print(f"user: {d['name']}\npassword: {d['password']}\n(change it in the panel: Panel → Change password)")
+            else:
+                print("ok")
         elif cmd == "request-update":
             call("POST", "request-update")
             print("update requested")

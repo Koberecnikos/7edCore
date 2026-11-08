@@ -85,7 +85,10 @@ async def read_upload(request, dest_dir: Path, exts=(".zip",)):
 
 # ------------------------------------------------------------------ overview, global, game versions
 async def h_overview(request):
-    return web.json_response(HUB.overview())
+    from .auth import can_see
+    ov = HUB.overview()
+    ov["instances"] = [x for x in ov["instances"] if can_see(request["user"], x["id"])]
+    return web.json_response(ov)
 
 
 async def h_presets(request):
@@ -195,6 +198,11 @@ async def h_delete(request):
     if str((await request.json()).get("confirm", "")).strip() != i.name:
         raise web.HTTPBadRequest(text="Type the exact server name to delete it")
     await HUB.delete(i.id)
+    from . import auth
+    for u in auth.USERS.values():
+        if isinstance(u["servers"], list) and i.id in u["servers"]:
+            u["servers"].remove(i.id)
+    auth.save_users()
     return ok()
 
 

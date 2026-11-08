@@ -10,7 +10,8 @@ const fmtDur = (s) => { s = Math.max(0, Math.floor(s)); const d = Math.floor(s /
 const h = (html) => { const tpl = document.createElement("template"); tpl.innerHTML = html.trim(); return tpl.content; };
 
 let CUR = null, OV = { instances: [] }, S = { status: {}, stats: {}, settings: {} }, META = null, PRESETS = [];
-let TAB = "overview", ES = null, OFFLINE = false;
+let TAB = "overview", ES = null, OFFLINE = false, ME = { role: "viewer" };
+const isAdmin = () => ME.role === "admin";
 const sp = (p) => `/api/s/${encodeURIComponent(CUR)}${p}`;
 
 // ------------------------------------------------------------------ API + connection state
@@ -103,11 +104,13 @@ function showGate(setup) {
   if (ES) { ES.close(); ES = null; }
   $("#gateTitle").textContent = t(setup ? "setup.title" : "login.title");
   $("#gateText").textContent = setup ? t("setup.text") : "";
+  $("#gateUser").placeholder = t("login.user");
+  if (!$("#gateUser").value) $("#gateUser").value = setup ? "admin" : (localStorage.getItem("lastUser") || "");
   $("#gatePw").placeholder = t("login.password");
   $("#gatePw2").placeholder = t("setup.pw2");
   $("#gatePw2").hidden = !setup;
   $("#gateBtn").textContent = t(setup ? "setup.submit" : "login.submit");
-  $("#gatePw").focus();
+  ($("#gateUser").value ? $("#gatePw") : $("#gateUser")).focus();
 }
 $("#gateForm").onsubmit = async (e) => {
   e.preventDefault();
@@ -117,8 +120,9 @@ $("#gateForm").onsubmit = async (e) => {
     if (GATE_SETUP) {
       if (pw.length < 8) throw new Error(t("setup.short"));
       if (pw !== $("#gatePw2").value) throw new Error(t("setup.mismatch"));
-      await api("POST", "/api/setup", { password: pw });
-    } else await api("POST", "/api/login", { password: pw });
+      await api("POST", "/api/setup", { username: $("#gateUser").value.trim(), password: pw });
+    } else await api("POST", "/api/login", { username: $("#gateUser").value.trim(), password: pw });
+    try { localStorage.setItem("lastUser", $("#gateUser").value.trim()); } catch { /* private mode */ }
     $("#gatePw").value = $("#gatePw2").value = "";
     boot();
   } catch (err) { $("#gateErr").textContent = err.message; }
@@ -130,6 +134,9 @@ async function boot() {
   let s;
   try { s = await (await fetch("/api/session")).json(); } catch { setOffline(true); setTimeout(boot, 3000); return; }
   if (!s.ok) return showGate(s.setup);
+  ME = s.user;
+  document.body.dataset.role = ME.role;
+  $("#meInfo").textContent = `${ME.name} · ${t("role." + ME.role)}`;
   $("#gate").hidden = true; $("#app").hidden = false;
   [META, PRESETS] = await Promise.all([api("GET", "/api/configmeta"), api("GET", "/api/presets").then((d) => d.presets)]);
   await loadOverview();
@@ -153,7 +160,7 @@ function renderTabs() {
   $("#btnNew").disabled = OV.instances.length >= OV.max;
 }
 function selectServer(id, tab = "overview") {
-  if (!id) return;
+  if (!id) { showPage(() => { $("#pageView").innerHTML = `<p class="empty">${esc(t(isAdmin() ? "u.noServersAdmin" : "u.noServers"))}</p>`; }); return; }
   CUR = id; S = { status: {}, stats: {}, settings: {} };
   $("#console").innerHTML = "";
   showPage(null);
@@ -261,6 +268,7 @@ function renderNotices() {
 // ------------------------------------------------------------------ tabs
 $$("#tabs button").forEach((b) => b.onclick = () => openTab(b.dataset.tab));
 function openTab(name) {
+  if (!isAdmin() && ["world", "settings", "mods", "files", "automation"].includes(name)) name = "overview";
   TAB = name;
   $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   $$(".tab").forEach((x) => x.classList.toggle("active", x.id === "tab-" + name));
@@ -303,7 +311,7 @@ function renderOverview() {
 let QA_MIN = "5";
 function quickActions() {
   const st = S.status, n = st.notices || {}, run = st.state === "running";
-  const box = h(`<div class="card" style="margin-top:14px"><h3>${t("qa.title")}</h3>
+  const box = h(`<div class="card op-only" style="margin-top:14px"><h3>${t("qa.title")}</h3>
     ${st.pending ? `<div class="alert newer_minor row"><span class="sp">${esc(t("qa.pending", { w: st.pending }))}</span><button class="small" data-q="cancel">${t("qa.cancel")}</button></div>` : ""}
     <div class="row">
       <button data-q="saveworld"${run ? "" : " disabled"}>💾 ${t("qa.save")}</button>
@@ -342,7 +350,7 @@ async function loadPlayers() {
   if (!d.players.length) { el.innerHTML = `<p class="empty">${esc(t("pl.none"))}</p>`; return; }
   el.innerHTML = `<table><tr><th>${t("pl.name")}</th><th class="num">${t("pl.level")}</th><th class="num">${t("pl.health")}</th><th class="num">${t("pl.deaths")}</th><th class="num">${t("pl.zombies")}</th><th class="num">${t("pl.ping")}</th><th></th></tr>
     ${d.players.map((p, i) => `<tr><td>${esc(p.name)}<div class="muted small">${esc(p.pltfmid)}</div></td><td class="num">${esc(p.level)}</td><td class="num">${esc(p.health)}</td><td class="num">${esc(p.deaths)}</td><td class="num">${esc(p.zombies)}</td><td class="num">${esc(p.ping)}</td>
-    <td class="row"><button class="small" data-k="${i}">${t("pl.kick")}</button><button class="small danger" data-b="${i}">${t("pl.ban")}</button><button class="small" data-a="${i}">${t("pl.admin")}</button></td></tr>`).join("")}</table>`;
+    <td class="row op-only"><button class="small" data-k="${i}">${t("pl.kick")}</button><button class="small danger" data-b="${i}">${t("pl.ban")}</button><button class="small" data-a="${i}">${t("pl.admin")}</button></td></tr>`).join("")}</table>`;
   const cmd = (c) => act(() => api("POST", sp("/command"), { command: c })).then(loadPlayers);
   const id = (p) => p.crossid || p.pltfmid || p.entityid;
   $$("[data-k]", el).forEach((b) => b.onclick = async () => { const p = d.players[b.dataset.k]; const r = await promptDlg(t("pl.kick"), t("pl.kickReason")); if (r !== null) cmd(`kick ${p.entityid} "${r.replace(/"/g, "'")}"`); });
@@ -720,10 +728,10 @@ async function loadBackups() {
   const el = $("#tab-backups");
   const d = await act(() => api("GET", sp("/backups")));
   if (!d) return;
-  el.innerHTML = `<div class="row" style="margin-bottom:12px"><button class="primary" id="bkNew"${d.busy ? " disabled" : ""}>${t("bk.create")}</button><span class="busy">${esc(d.busy || "")}</span><span class="sp"></span><span class="muted small">${esc(d.path)}</span></div>
+  el.innerHTML = `<div class="row op-only" style="margin-bottom:12px"><button class="primary" id="bkNew"${d.busy ? " disabled" : ""}>${t("bk.create")}</button><span class="busy">${esc(d.busy || "")}</span><span class="sp"></span><span class="muted small">${esc(d.path)}</span></div>
     ${d.backups.length ? `<table><tr><th>${t("f.name")}</th><th>${t("bk.kind")}</th><th class="num">${t("f.size")}</th><th>${t("f.changed")}</th><th></th></tr>
     ${d.backups.map((b, i) => `<tr><td>${esc(b.name)}</td><td><span class="tag">${esc(t("bk.kind." + b.kind))}</span></td><td class="num">${fmtBytes(b.size)}</td><td>${fmtTime(b.mtime)}</td>
-      <td class="row"><a class="small" href="/api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small" data-rs="${i}">${t("act.restore")}</button><button class="small danger" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
+      <td class="row"><a class="small admin-only" href="/api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small op-only" data-rs="${i}">${t("act.restore")}</button><button class="small danger admin-only" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
     : `<p class="empty">${esc(t("bk.none"))}</p>`}`;
   $("#bkNew").onclick = async () => { await act(() => api("POST", sp("/backups/create")), t("ok.queued")); setTimeout(loadBackups, 1500); };
   $$("[data-rs]", el).forEach((b) => b.onclick = async () => { const n = d.backups[b.dataset.rs].name; if (await confirmDlg(t("bk.restoreQ", { n }))) { await act(() => api("POST", sp("/backups/restore"), { name: n }), t("ok.queued")); setTimeout(loadBackups, 1500); } });
@@ -882,32 +890,78 @@ async function pageVersions() {
 // ------------------------------------------------------------------ page: panel settings
 async function pagePanel() {
   const el = $("#pageView");
-  const g = await act(() => api("GET", "/api/global"));
+  const g = isAdmin() ? await act(() => api("GET", "/api/global")) : { self_update: {} };
   if (!g || PAGE !== pagePanel) return;
+  const users = isAdmin() ? await act(() => api("GET", "/api/users")) : null;
   const su = g.self_update || {};
   el.innerHTML = `<h2>${t("p.title")}</h2>
-  <div class="card"><h3>${t("p.self")}</h3>
+  ${users ? usersCard(users) : ""}
+  <div class="card admin-only"><h3>${t("p.self")}</h3>
     <p>${esc(t("p.version", { v: OV.panel?.version }))}${OV.panel?.update ? ` → <b>${esc(OV.panel.update.version)}</b> <a href="${esc(OV.panel.update.url)}" target="_blank" rel="noopener">changelog</a>` : ""}</p>
     <div class="form-grid"><div class="field"><label>${t("p.selfPolicy")}</label><select id="spPol">${["auto", "notify", "off"].map((v) => `<option value="${v}"${su.policy === v ? " selected" : ""}>${esc(t("p.sp." + v))}</option>`).join("")}</select></div></div>
     ${su.updater ? `<div class="row" style="margin-top:10px"><button id="spNow"${OV.panel?.update ? ' class="primary"' : ""}>${t("p.selfNow")}</button></div>` : `<p class="muted small">${esc(t("p.selfNoUpdater"))}</p>`}
   </div>
-  <div class="card"><h3>${t("p.password")}</h3>${g.password_env ? `<p class="muted">${esc(t("p.pwEnv"))}</p>` : `
+  <div class="card"><h3>${t("p.password")} <span class="muted small">(${esc(ME.name)})</span></h3>${g.password_env && ME.name === "admin" ? `<p class="muted">${esc(t("p.pwEnv"))}</p>` : `
     <div class="form-grid"><div class="field"><label>${t("p.current")}</label><input type="password" id="pwCur" autocomplete="current-password"></div>
     <div class="field"><label>${t("p.new")}</label><input type="password" id="pwNew" autocomplete="new-password"></div></div>
     <div class="row" style="margin-top:10px"><button class="primary" id="pwSave">${t("act.save")}</button></div>`}</div>
-  <div class="card"><h3>${t("p.tokens")}</h3><div class="form-grid">
+  <div class="card admin-only"><h3>${t("p.tokens")}</h3><div class="form-grid">
     <div class="field"><label>${t("p.github")} <span class="tag${g.github_token_set ? " on" : ""}">${t(g.github_token_set ? "p.set" : "p.notset")}</span></label><input type="password" id="tkGh" autocomplete="off"></div>
     <div class="field"><label>${t("p.nexus")} <span class="tag${g.nexus_key_set ? " on" : ""}">${t(g.nexus_key_set ? "p.set" : "p.notset")}</span></label><input type="password" id="tkNx" autocomplete="off"></div>
   </div><div class="row" style="margin-top:10px"><button class="primary" id="tkSave">${t("act.save")}</button></div></div>
   <div class="card"><h3>${t("p.lang")}</h3><select class="lang-pick"></select></div>
   <div class="card"><h3>${t("p.about")}</h3><p class="muted small">7edCore · <a href="https://github.com/${esc(OV.panel?.repo || "Koberecnikos/7edCore")}" target="_blank" rel="noopener">GitHub</a></p></div>`;
   initLangPickers();
+  if (users) bindUsers(users);
+  if (!isAdmin()) { const pw0 = $("#pwSave"); if (pw0) pw0.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged")); return; }
   $("#spPol").onchange = () => act(() => api("POST", "/api/selfupdate", { policy: $("#spPol").value }), t("ok.saved"));
   const now = $("#spNow"); if (now) now.onclick = () => act(() => api("POST", "/api/selfupdate/now"), t("p.selfRequested"));
   const pw = $("#pwSave"); if (pw) pw.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged"));
   $("#tkSave").onclick = async () => {
     const b = {}; if ($("#tkGh").value) b.github_token = $("#tkGh").value; if ($("#tkNx").value) b.nexus_key = $("#tkNx").value;
     if (await act(() => api("POST", "/api/global", b), t("ok.saved"))) pagePanel();
+  };
+}
+
+// ------------------------------------------------------------------ users (admin)
+function serverChecks(cls, sel) {
+  const all = sel === "*";
+  return `<label class="check"><input type="checkbox" class="${cls}-all"${all ? " checked" : ""}> ${esc(t("u.allServers"))}</label>
+    <div class="${cls}-list"${all ? " hidden" : ""}>${OV.instances.map((i) => `<label class="check"><input type="checkbox" class="${cls}" value="${esc(i.id)}"${!all && sel.includes(i.id) ? " checked" : ""}> ${esc(i.name)}</label>`).join("")}</div>`;
+}
+function readServers(root, cls) {
+  return $(`.${cls}-all`, root).checked ? "*" : $$(`.${cls}:checked`, root).map((x) => x.value);
+}
+function usersCard(d) {
+  return `<div class="card"><h3>${t("u.title")}</h3><p class="muted small">${esc(t("u.hint"))}</p>
+    <table><tr><th>${t("u.name")}</th><th>${t("u.role")}</th><th>${t("u.servers")}</th><th></th></tr>
+    ${d.users.map((u, i) => `<tr data-u="${i}"><td><b>${esc(u.name)}</b>${u.name === ME.name ? ` <span class="tag on">${esc(t("u.you"))}</span>` : ""}</td>
+      <td><select class="uRole">${d.roles.map((r) => `<option value="${r}"${r === u.role ? " selected" : ""}>${esc(t("role." + r))}</option>`).join("")}</select></td>
+      <td>${u.role === "admin" ? `<span class="muted small">${esc(t("u.allServers"))}</span>` : serverChecks("uSrv" + i, u.servers)}</td>
+      <td class="row"><button class="small uPw">${t("u.resetPw")}</button>${u.name === ME.name ? "" : `<button class="small danger uDel">${t("act.delete")}</button>`}</td></tr>`).join("")}</table>
+    <h4>${t("u.add")}</h4><div class="form-grid" id="uNew">
+      <div class="field"><label>${t("u.name")}</label><input id="nuName" autocomplete="off"></div>
+      <div class="field"><label>${t("p.new")}</label><input id="nuPw" type="password" autocomplete="new-password"></div>
+      <div class="field"><label>${t("u.role")}</label><select id="nuRole">${d.roles.map((r) => `<option value="${r}"${r === "operator" ? " selected" : ""}>${esc(t("role." + r))}</option>`).join("")}</select>
+        <div class="hint">${esc(t("u.roleHint"))}</div></div>
+      <div class="field"><label>${t("u.servers")}</label>${serverChecks("nuSrv", "*")}</div>
+    </div><div class="row" style="margin-top:10px"><button class="primary" id="nuAdd">${t("act.add")}</button></div></div>`;
+}
+function bindUsers(d) {
+  const toggleAll = (root, cls) => { const a = $(`.${cls}-all`, root); if (a) a.onchange = () => { $(`.${cls}-list`, root).hidden = a.checked; a.dispatchEvent(new Event("saved")); }; };
+  $$("tr[data-u]").forEach((tr) => {
+    const i = +tr.dataset.u, u = d.users[i], cls = "uSrv" + i;
+    const save = (body) => act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}`, body), t("ok.saved")).then(() => pagePanel());
+    $(".uRole", tr).onchange = (e) => save({ role: e.target.value });
+    toggleAll(tr, cls);
+    $$(`.${cls}, .${cls}-all`, tr).forEach((c) => c.addEventListener("change", () => act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}`, { servers: readServers(tr, cls) }), t("ok.saved"))));
+    $(".uPw", tr).onclick = async () => { const pw = await promptDlg(t("u.resetPw") + ": " + u.name, t("p.new")); if (pw) save({ password: pw }); };
+    const del = $(".uDel", tr); if (del) del.onclick = async () => { if (await confirmDlg(t("u.deleteQ", { n: u.name }))) act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}/delete`), t("ok.saved")).then(() => pagePanel()); };
+  });
+  toggleAll($("#uNew"), "nuSrv");
+  $("#nuAdd").onclick = async () => {
+    const r = await act(() => api("POST", "/api/users", { username: $("#nuName").value.trim(), password: $("#nuPw").value, role: $("#nuRole").value, servers: readServers($("#uNew"), "nuSrv") }), t("ok.saved"));
+    if (r) pagePanel();
   };
 }
 

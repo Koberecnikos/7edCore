@@ -210,3 +210,4 @@ dialog { max-width: min(640px, 94vw); }
 .stack-list .sname { font-size: 13px; }
 .stack-legend { display: flex; justify-content: space-between; margin-bottom: 8px; }
 @media (max-width: 1000px) { .preset-layout { grid-template-columns: 1fr; } .stack { position: static; order: -1; } }
+body:not([data-role=admin]) .admin-only, body[data-role=viewer] .op-only { display: none !important; }

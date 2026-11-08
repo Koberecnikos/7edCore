@@ -33,6 +33,11 @@ def main():
     app.router.add_post("/api/login", auth.h_login)
     app.router.add_post("/api/logout", auth.h_logout)
     app.router.add_post("/api/password", auth.h_password)
+    app.router.add_get("/api/users", auth.h_users)
+    app.router.add_post("/api/users", auth.h_user_create)
+    app.router.add_post("/api/users/{name}", auth.h_user_update)
+    app.router.add_post("/api/users/{name}/delete", auth.h_user_delete)
+    app.router.add_post("/api/local/users", auth.h_local_users)
     api.routes(app)
 
     async def on_startup(_app):
@@ -52,7 +57,7 @@ def main():
         await runner.setup()
         await web.TCPSite(runner, "0.0.0.0", PANEL_PORT).start()
         print(f"[7edcore] v{__version__} on :{PANEL_PORT}, data {DATA}, servers: {', '.join(hub.order)}"
-              + ("" if auth.stored() else " - open the panel in a browser to set the admin password"), flush=True)
+              + (" - open the panel in a browser to create the admin account" if auth.setup_needed() else ""), flush=True)
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):

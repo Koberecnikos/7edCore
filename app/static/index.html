@@ -16,6 +16,7 @@
     <img src="/static/banner.jpg" alt="7edCore" class="banner">
     <h2 id="gateTitle"></h2>
     <p id="gateText" class="muted"></p>
+    <input id="gateUser" autocomplete="username" autocapitalize="off" spellcheck="false">
     <input type="password" id="gatePw" autocomplete="current-password">
     <input type="password" id="gatePw2" autocomplete="new-password" hidden>
     <button class="primary" type="submit" id="gateBtn"></button>
@@ -28,12 +29,13 @@
   <div id="top">
     <a class="brand" href="#" title="7edCore"><img src="/static/favicon.png" alt=""><b class="r">7</b>ed<b class="r">Core</b></a>
     <div id="srvTabs"></div>
-    <button id="btnNew" class="srv-add" data-ititle="top.new">＋</button>
+    <button id="btnNew" class="srv-add admin-only" data-ititle="top.new">＋</button>
     <span class="sp"></span>
     <span id="steamInfo" class="muted small"></span>
-    <button id="btnVersions" class="ghost" data-i="top.versions"></button>
+    <button id="btnVersions" class="ghost admin-only" data-i="top.versions"></button>
     <button id="btnPanel" class="ghost" data-i="top.panel"></button>
     <select class="lang-pick" aria-label="Language"></select>
+    <span id="meInfo" class="muted small"></span>
     <button id="btnLogout" class="ghost" data-ititle="top.logout">⎋</button>
   </div>
   <div id="notices"></div>
@@ -43,7 +45,7 @@
       <span id="stateBadge" class="badge">–</span>
       <span id="verChip" class="chip"></span>
       <span id="busyText" class="busy"></span>
-      <div class="hdr-actions">
+      <div class="hdr-actions op-only">
         <button id="btnStart" class="primary" data-i="act.start"></button>
         <button id="btnStop" data-i="act.stop"></button>
         <button id="btnRestart" data-i="act.restart"></button>
@@ -54,18 +56,18 @@
       <button data-tab="overview" data-i="tab.overview"></button>
       <button data-tab="console" data-i="tab.console"></button>
       <button data-tab="players" data-i="tab.players"></button>
-      <button data-tab="world" data-i="tab.world"></button>
-      <button data-tab="settings" data-i="tab.settings"></button>
-      <button data-tab="mods" data-i="tab.mods"></button>
+      <button data-tab="world" data-i="tab.world" class="admin-only"></button>
+      <button data-tab="settings" data-i="tab.settings" class="admin-only"></button>
+      <button data-tab="mods" data-i="tab.mods" class="admin-only"></button>
       <button data-tab="backups" data-i="tab.backups"></button>
-      <button data-tab="files" data-i="tab.files"></button>
-      <button data-tab="automation" data-i="tab.automation"></button>
+      <button data-tab="files" data-i="tab.files" class="admin-only"></button>
+      <button data-tab="automation" data-i="tab.automation" class="admin-only"></button>
     </nav>
     <main>
       <section class="tab" id="tab-overview"></section>
       <section class="tab" id="tab-console">
         <div id="console"></div>
-        <form class="cmdline" id="cmdForm">
+        <form class="cmdline op-only" id="cmdForm">
           <input id="cmdInput" data-iph="con.placeholder" autocomplete="off">
           <button class="primary" data-i="con.send"></button>
           <label class="small"><input type="checkbox" id="autoScroll" checked> <span data-i="con.autoscroll"></span></label>

@@ -3,8 +3,8 @@
 const LANGS = { en: "English", cs: "Čeština" };
 const I18N = {
   en: {
-    "login.title": "Sign in", "login.password": "Panel password", "login.submit": "Sign in",
-    "setup.title": "Welcome to 7edCore", "setup.text": "Choose the admin password for this panel. You will stay signed in on this browser.",
+    "login.title": "Sign in", "login.password": "Password", "login.submit": "Sign in",
+    "setup.title": "Welcome to 7edCore", "setup.text": "Create the admin account for this panel. You can add more users with their own roles later. You will stay signed in on this browser.",
     "setup.pw2": "Repeat password", "setup.submit": "Save and continue", "setup.mismatch": "Passwords do not match",
     "setup.short": "Use at least 8 characters",
     "conn.lost": "Connection to the panel lost - reconnecting…", "conn.back": "Connected again",
@@ -141,11 +141,17 @@ const I18N = {
     "stk.empty": "Nothing selected. Use ＋ on a preset.", "stk.apply": "Preview & apply", "stk.clear": "Clear",
     "stk.add": "Add to combination", "stk.addRandom": "Add random:", "stk.top": "highest priority", "stk.bottom": "lowest priority",
     "stk.drag": "Drag to reorder", "stk.conflicts": "Overridden settings", "stk.overrides": "{w} overrides {l} ({k})",
+    "login.user": "User name", "role.admin": "Admin", "role.operator": "Operator", "role.viewer": "Viewer",
+    "u.title": "Users", "u.hint": "Admins can do everything. Operators can start/stop/restart, use the console, quick actions and backups on their servers. Viewers can only watch. Lost password: run `sudo 7edcore user reset NAME` on the server.",
+    "u.name": "User name", "u.role": "Role", "u.servers": "Servers", "u.allServers": "All servers", "u.you": "you",
+    "u.resetPw": "Set password", "u.add": "Add user", "u.deleteQ": "Delete user {n}?",
+    "u.noServers": "No server is assigned to your account yet. Ask an admin to give you access.", "u.noServersAdmin": "No servers yet - create one with ＋.",
+    "u.roleHint": "Admin: everything · Operator: run servers · Viewer: read-only",
     "confirm.title": "Are you sure?", "unit.min": "min",
   },
   cs: {
-    "login.title": "Přihlášení", "login.password": "Heslo panelu", "login.submit": "Přihlásit",
-    "setup.title": "Vítej v 7edCore", "setup.text": "Zvol administrátorské heslo k panelu. V tomhle prohlížeči zůstaneš přihlášený.",
+    "login.title": "Přihlášení", "login.password": "Heslo", "login.submit": "Přihlásit",
+    "setup.title": "Vítej v 7edCore", "setup.text": "Vytvoř administrátorský účet panelu. Další uživatele s vlastními rolemi přidáš později. V tomhle prohlížeči zůstaneš přihlášený.",
     "setup.pw2": "Heslo znovu", "setup.submit": "Uložit a pokračovat", "setup.mismatch": "Hesla se neshodují",
     "setup.short": "Aspoň 8 znaků",
     "conn.lost": "Spojení s panelem přerušeno - připojuji znovu…", "conn.back": "Znovu připojeno",
@@ -282,6 +288,12 @@ const I18N = {
     "stk.empty": "Nic nevybráno. Použij ＋ u presetu.", "stk.apply": "Náhled a použít", "stk.clear": "Vyčistit",
     "stk.add": "Přidat do kombinace", "stk.addRandom": "Přidat náhodný:", "stk.top": "nejvyšší priorita", "stk.bottom": "nejnižší priorita",
     "stk.drag": "Přetáhni pro změnu pořadí", "stk.conflicts": "Přepsaná nastavení", "stk.overrides": "{w} přepisuje {l} ({k})",
+    "login.user": "Uživatel", "role.admin": "Admin", "role.operator": "Operátor", "role.viewer": "Divák",
+    "u.title": "Uživatelé", "u.hint": "Admin může všechno. Operátor může na svých serverech start/stop/restart, konzoli, rychlé akce a zálohy. Divák jen sleduje. Zapomenuté heslo: na serveru spusť `sudo 7edcore user reset JMÉNO`.",
+    "u.name": "Uživatelské jméno", "u.role": "Role", "u.servers": "Servery", "u.allServers": "Všechny servery", "u.you": "ty",
+    "u.resetPw": "Nastavit heslo", "u.add": "Přidat uživatele", "u.deleteQ": "Smazat uživatele {n}?",
+    "u.noServers": "K tvému účtu zatím není přiřazený žádný server. Požádej admina o přístup.", "u.noServersAdmin": "Zatím žádné servery - vytvoř první přes ＋.",
+    "u.roleHint": "Admin: všechno · Operátor: ovládání serverů · Divák: jen čtení",
     "confirm.title": "Opravdu?", "unit.min": "min",
   },
 };

@@ -36,7 +36,8 @@ Several servers on one machine, each with its own game version, mods, backups an
 - **Scheduler.** Start, stop, restart, update and backup rules per weekday. Players get warnings in the in-game chat before a stop or restart.
 - **Backups.** Automatic and manual backups, compressed with zstd on a reserved CPU core. A backup is also taken before every restore, update and import.
 - **Resources.** RAM limit (warn or restart gracefully), CPU core pinning, crash auto-restart, and a file manager with an editor.
-- **Interface.** English and Czech. Logins are remembered for a year, and you set the password on first run.
+- **Users and roles.** Every user has their own account. Admins can do everything. Operators run the servers they are given: start and stop, console, quick actions and backups. Viewers can only watch. Logins are remembered for a year.
+- **Interface.** English and Czech.
 - **Self-updating.** When a new 7edCore release is published, your server updates itself, but only when nobody is playing.
 - **Safe shutdowns and power loss.** Game servers are saved and stopped on shutdown and resumed afterwards. A `7edcore` command line plugs into UPS software, and laptops and mini PCs get battery handling out of the box.
 
@@ -59,7 +60,7 @@ The installer does the following:
 - enables battery handling if the machine has a battery;
 - opens the game ports in ufw or firewalld if either is active.
 
-When it finishes, open `http://<server-ip>:8120` and choose the admin password. The game itself is downloaded from the panel through SteamCMD.
+When it finishes, open `http://<server-ip>:8120` and create the admin account (user name and password). The game itself is downloaded from the panel through SteamCMD.
 
 Forward **26900–26903 TCP+UDP** on your router for server 1, 26910–26913 for server 2, and so on. **Do not** expose port 8120 to the internet. Use your LAN or a VPN such as Tailscale instead.
 
@@ -93,6 +94,11 @@ If you skip the updater, update by hand with `docker compose pull && docker comp
 7edcore start|stop|restart ID  one server (ID from status)
 7edcore update                 update 7edCore now
 7edcore logs                   follow the panel log
+7edcore user list              panel accounts
+7edcore user reset NAME        new random password for NAME (lost password)
+7edcore user add NAME [ROLE]   new account (admin, operator or viewer), prints its password
+7edcore user role NAME ROLE    change a role
+7edcore user delete NAME       delete an account
 ```
 
 Exit codes: `0` means OK, `1` means error, `2` means the panel is not running. `save` still works when the panel is not responding, because it falls back to sending `saveworld` directly to each game server.
@@ -140,7 +146,7 @@ These are environment variables in `compose.yaml`:
 |---|---|---|
 | `TZ` | host time zone | used by the scheduler and timestamps |
 | `MAX_SERVERS` | `4` | each server needs 10 game ports and 1 web map port, so publish the matching ranges |
-| `PANEL_PASSWORD` | – | a fixed password instead of first-run setup |
+| `PANEL_PASSWORD` | – | keeps an `admin` account with this password, instead of first-run setup |
 | `GAME_PORT_BASE` / `WEB_PORT_BASE` | `26900` / `8080` | server *k* uses base + 10·k for the game and base + k for the web map |
 
 ## Development

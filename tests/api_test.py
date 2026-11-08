@@ -156,6 +156,47 @@ async def main():
         check(st == 403, "protected folder")
         st, d = await j("GET", P + "/worlds")
         check(st == 200 and "Navezgane" in d["builtin"], f"worlds {d.get('builtin')}")
+        # ---- users and roles
+        st, d = await j("GET", "/api/session")
+        check(d["user"]["name"] == "admin" and d["user"]["role"] == "admin", f"session user {d.get('user')}")
+        st, d = await j("POST", "/api/users", json={"username": "op1", "password": "operator-pass", "role": "operator", "servers": [iid2]})
+        check(st == 200, f"create operator {d}")
+        st, d = await j("POST", "/api/users", json={"username": "view1", "password": "short", "role": "viewer"})
+        check(st == 400, "password rules")
+        st, d = await j("POST", "/api/users", json={"username": "view1", "password": "viewer-pass", "role": "viewer"})
+        async with aiohttp.ClientSession(headers=H, cookie_jar=aiohttp.CookieJar(unsafe=True)) as o:
+            async def oj(method, path, **kw):
+                async with o.request(method, URL + path, **kw) as r:
+                    try:
+                        return r.status, await r.json()
+                    except Exception:
+                        return r.status, None
+            st, d = await oj("POST", "/api/login", json={"username": "op1", "password": "wrong-pass"})
+            check(st == 401, "operator wrong password")
+            st, d = await oj("POST", "/api/login", json={"username": "op1", "password": "operator-pass"})
+            st, d = await oj("GET", "/api/overview")
+            check([x["id"] for x in d["instances"]] == [iid2], f"operator sees only own server {[x['id'] for x in d['instances']]}")
+            st, d = await oj("GET", P + "/status")
+            check(st == 403, "operator blocked from other server")
+            st, d = await oj("POST", f"/api/s/{iid2}/settings", json={"ram_limit_gb": 1})
+            check(st == 403, "operator cannot change settings")
+            st, d = await oj("GET", "/api/files?path=/")
+            check(st == 403, "operator cannot browse files")
+            st, d = await oj("POST", f"/api/s/{iid2}/quick/check")
+            check(st == 200, "operator can use quick actions")
+            st, d = await oj("GET", f"/api/s/{iid2}/config")
+            check(st == 403, "operator cannot read config (passwords)")
+        async with aiohttp.ClientSession(headers=H, cookie_jar=aiohttp.CookieJar(unsafe=True)) as v:
+            async with v.post(URL + "/api/login", json={"username": "view1", "password": "viewer-pass"}) as r:
+                pass
+            async with v.post(URL + f"/api/s/{iid2}/server/start") as r:
+                check(r.status == 403, "viewer cannot start")
+            async with v.get(URL + f"/api/s/{iid2}/status") as r:
+                check(r.status == 200, "viewer can watch")
+        st, d = await j("POST", "/api/users/admin", json={"role": "viewer"})
+        check(st == 409, "last admin cannot be demoted")
+        st, d = await j("POST", "/api/users/view1/delete")
+        check(st == 200, "delete user")
         st, d = await j("POST", f"/api/s/{iid2}/delete", json={"confirm": "Alpha Fun"})
         check(st == 200, "delete server 2")
     print(f"\n{fails} failures")

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 - 2026-11-08
+
+- User accounts instead of one shared password: admin, operator and viewer roles, per-user server access
+- First visit creates the admin account (user name + password); an existing panel password becomes the account "admin"
+- Panel → Users: add users, change roles and servers, set passwords, delete; everyone can change their own password
+- Lost password: `7edcore user reset NAME` on the host prints a new one; also `7edcore user list | add | role | delete`
+
 ## 1.2.0 - 2026-11-08
 
 - Combine presets: add several presets (and random rolls) to a combination, drag to order them; the preset on top has priority and overrides the same settings of the ones below
