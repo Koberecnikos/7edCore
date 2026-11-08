@@ -196,3 +196,17 @@ dialog .field { margin-bottom: 10px; }
 .twists { margin: 6px 0; padding-left: 0; list-style: none; } .twists li { margin: 4px 0; }
 .cfg-item.nondefault select { color: var(--acc2); }
 dialog { max-width: min(640px, 94vw); }
+.preset-layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+.preset-layout .presets { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.stack { position: sticky; top: 12px; }
+.stack-list { list-style: none; padding: 0; margin: 8px 0; counter-reset: stk; }
+.stack-list li { counter-increment: stk; display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin: 4px 0; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; cursor: grab; }
+.stack-list li::before { content: counter(stk); color: var(--muted); font-size: 11px; width: 14px; }
+.stack-list li:first-child { border-color: var(--acc); }
+.stack-list li.dragging { opacity: .4; }
+.stack-list li.drop-before { box-shadow: 0 -3px 0 var(--acc); }
+.stack-list li.drop-after { box-shadow: 0 3px 0 var(--acc); }
+.stack-list .grip { color: var(--muted); cursor: grab; }
+.stack-list .sname { font-size: 13px; }
+.stack-legend { display: flex; justify-content: space-between; margin-bottom: 8px; }
+@media (max-width: 1000px) { .preset-layout { grid-template-columns: 1fr; } .stack { position: static; order: -1; } }

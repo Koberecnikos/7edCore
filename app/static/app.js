@@ -470,13 +470,14 @@ function renderSettings() {
   let html = `<div class="seg">${["basic", "detailed", "advanced"].map((l) => `<button data-lv="${l}" class="${l === LEVEL ? "active" : ""}">${t("st." + l)}</button>`).join("")}</div>`;
   if (SB) html += `<p class="muted small">${esc(t("sb.info", { v: SB.game }))}</p>`;
   if (LEVEL === "basic") {
-    html += `<h2>${t("st.presets")}</h2><p class="muted small">${esc(t("st.presetsHint"))}</p>`;
+    html += `<h2>${t("st.presets")}</h2><p class="muted small">${esc(t("st.presetsHint"))}</p><div class="preset-layout"><div class="preset-main">`;
     const cur = S.status.preset || "";
     for (const tier of ["easy", "medium", "hard", "extreme"]) {
       const list = PRESETS.filter((p) => p.tier === tier);
       if (!list.length) continue;
       html += `<h4 class="tier tier-${tier}">${esc(t("tier." + tier))}</h4><div class="presets">${list.map((p) => presetCard(p, cur)).join("")}${tier === "medium" ? randomCard() : ""}</div>`;
     }
+    html += `</div><aside class="stack card" id="stackBox"></aside></div>`;
   } else {
     html += `<div class="row" style="margin-bottom:10px"><input id="cfgSearch" placeholder="${esc(t("st.search"))}" style="flex:1;max-width:360px"></div>`;
     if (LEVEL === "advanced") html += `<div class="alert newer_minor">${esc(t("st.advancedWarn"))}</div>`;
@@ -501,6 +502,12 @@ function renderSettings() {
   $$("[data-go]", el).forEach((a) => a.onclick = () => $("#cat-" + a.dataset.go)?.scrollIntoView({ behavior: "smooth" }));
   $$("[data-pr]", el).forEach((b) => b.onclick = () => presetDialog({ id: b.dataset.pr }));
   $$("[data-rnd]", el).forEach((b) => b.onclick = () => presetDialog({ tier: b.dataset.rnd }));
+  $$("[data-add]", el).forEach((b) => b.onclick = () => stackAdd({ id: b.dataset.add }));
+  $$("[data-addrnd]", el).forEach((b) => b.onclick = async () => {
+    const plan = await act(() => api("POST", sp("/preset/preview"), { tier: b.dataset.addrnd }));
+    if (plan) stackAdd({ tier: plan.preset.tier, seed: plan.preset.seed, name: plan.preset.name, desc: plan.preset.desc });
+  });
+  if ($("#stackBox")) renderStack();
   const dirty = () => { const k = Object.keys(CHANGES).length + Object.keys(SBCH).length; $("#saveBar").hidden = !k; $("#saveInfo").textContent = t("st.unsaved", { n: k }); };
   $$("[data-cfg]", el).forEach((inp) => inp.oninput = inp.onchange = () => {
     const n = inp.dataset.cfg, orig = have.get(n).value;
@@ -533,11 +540,12 @@ function presetCard(p, cur) {
   return `<div class="preset${cur === p.id ? " active" : ""}"><h4>${p.icon} ${esc(L(p.name))}</h4><div class="skulls" title="${esc(t("st.level"))}">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
     <p>${esc(L(p.desc))}</p><div class="row">${cur === p.id ? `<span class="tag on">${esc(t("st.preset.active"))}</span>` : ""}
     ${p.modlets?.length ? `<span class="tag warnt" title="${esc(t("st.preset.modletHint"))}">XML</span>` : ""}<span class="sp"></span>
-    <button class="small primary" data-pr="${p.id}">${t("st.preset.show")}</button></div></div>`;
+    <button class="small" data-add="${p.id}" title="${esc(t("stk.add"))}">＋</button><button class="small primary" data-pr="${p.id}">${t("st.preset.show")}</button></div></div>`;
 }
 function randomCard() {
   return `<div class="preset random"><h4>🎲 ${esc(t("rnd.title"))}</h4><p>${esc(t("rnd.desc"))}</p>
-    <div class="row"><button class="small" data-rnd="easy">${t("tier.easy")}</button><button class="small" data-rnd="medium">${t("tier.medium")}</button><button class="small danger" data-rnd="hard">${t("tier.hard")}</button></div></div>`;
+    <div class="row"><button class="small" data-rnd="easy">${t("tier.easy")}</button><button class="small" data-rnd="medium">${t("tier.medium")}</button><button class="small danger" data-rnd="hard">${t("tier.hard")}</button></div>
+    <div class="row small muted">${esc(t("stk.addRandom"))} <button class="small" data-addrnd="easy">＋${t("tier.easy")}</button><button class="small" data-addrnd="medium">＋${t("tier.medium")}</button><button class="small" data-addrnd="hard">＋${t("tier.hard")}</button></div></div>`;
 }
 function cfgField(n, p) {
   const m = META.props[n] || { type: /^(true|false)$/.test(p.value) ? "bool" : /^-?\d+(\.\d+)?$/.test(p.value) ? "number" : "text", label: { en: n } };
@@ -554,14 +562,64 @@ function cfgField(n, p) {
   } else input = `<input data-cfg="${n}" value="${esc(v)}" type="${m.type === "number" ? "number" : m.type === "password" ? "password" : "text"}"${m.min != null ? ` min="${m.min}"` : ""}${m.max != null ? ` max="${m.max}"` : ""}${dis}>`;
   return `<div class="cfg-item${n in CHANGES ? " changed" : ""}">${lab}${input}<div class="hint">${esc(help)}</div></div>`;
 }
+// ---- preset combination (first = highest priority, overrides everything below it)
+let STACK = null, STACK_FOR = null;
+function stackItem(x) {
+  if (x.tier && x.seed) {
+    const tierName = t("tier." + x.tier);
+    return { tier: x.tier, seed: x.seed, icon: "🎲", name: x.name || { en: `Random · ${tierName} #${x.seed}`, cs: `Náhodný · ${tierName} #${x.seed}` }, desc: x.desc };
+  }
+  const p = PRESETS.find((q) => q.id === x.id);
+  return p ? { id: p.id, icon: p.icon, name: p.name, desc: p.desc } : null;
+}
+function stackAdd(x) {
+  const it = stackItem(x);
+  if (!it || (it.id && STACK.some((s) => s.id === it.id))) return;
+  STACK.unshift(it);
+  renderStack();
+}
+function renderStack() {
+  if (STACK_FOR !== CUR) { STACK = (S.status.preset_stack || []).map(stackItem).filter(Boolean); STACK_FOR = CUR; }
+  const box = $("#stackBox");
+  box.innerHTML = `<h3>🧩 ${t("stk.title")}</h3><p class="muted small">${esc(t("stk.hint"))}</p>
+    ${STACK.length ? `<ol class="stack-list">${STACK.map((x, i) => `<li draggable="true" data-i="${i}"><span class="grip" title="${esc(t("stk.drag"))}">⠿</span>
+      <span class="sname">${x.icon} ${esc(L(x.name))}</span><span class="sp"></span>
+      <button class="small ghost" data-up="${i}"${i ? "" : " disabled"} title="↑">↑</button><button class="small ghost" data-down="${i}"${i < STACK.length - 1 ? "" : " disabled"} title="↓">↓</button>
+      <button class="small ghost" data-rm="${i}" title="${esc(t("act.remove"))}">✕</button></li>`).join("")}</ol>
+      <div class="muted small stack-legend"><span>▲ ${esc(t("stk.top"))}</span><span>▼ ${esc(t("stk.bottom"))}</span></div>`
+      : `<p class="empty">${esc(t("stk.empty"))}</p>`}
+    <div class="row"><button class="primary" id="stkApply"${STACK.length ? "" : " disabled"}>${t("stk.apply")}</button><button id="stkClear"${STACK.length ? "" : " disabled"}>${t("stk.clear")}</button></div>`;
+  const move = (from, to) => { if (to < 0 || to >= STACK.length || from === to) return; const [x] = STACK.splice(from, 1); STACK.splice(to, 0, x); renderStack(); };
+  $$("[data-up]", box).forEach((b) => b.onclick = () => move(+b.dataset.up, +b.dataset.up - 1));
+  $$("[data-down]", box).forEach((b) => b.onclick = () => move(+b.dataset.down, +b.dataset.down + 1));
+  $$("[data-rm]", box).forEach((b) => b.onclick = () => { STACK.splice(+b.dataset.rm, 1); renderStack(); });
+  let dragFrom = null;
+  $$(".stack-list li", box).forEach((li) => {
+    li.ondragstart = (e) => { dragFrom = +li.dataset.i; li.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", li.dataset.i); };
+    li.ondragend = () => li.classList.remove("dragging");
+    li.ondragover = (e) => { e.preventDefault(); const r = li.getBoundingClientRect(); li.classList.toggle("drop-before", e.clientY < r.top + r.height / 2); li.classList.toggle("drop-after", e.clientY >= r.top + r.height / 2); };
+    li.ondragleave = () => li.classList.remove("drop-before", "drop-after");
+    li.ondrop = (e) => {
+      e.preventDefault();
+      const to = +li.dataset.i + (li.classList.contains("drop-after") ? 1 : 0);
+      li.classList.remove("drop-before", "drop-after");
+      if (dragFrom === null) return;
+      move(dragFrom, dragFrom < to ? to - 1 : to);
+      dragFrom = null;
+    };
+  });
+  $("#stkClear").onclick = () => { STACK = []; renderStack(); };
+  $("#stkApply").onclick = () => presetDialog({ stack: STACK.map((x) => x.seed ? { tier: x.tier, seed: x.seed } : { id: x.id }) });
+}
 async function presetDialog(req) {
   for (;;) {
     const plan = await act(() => api("POST", sp("/preset/preview"), req));
     if (!plan) return;
     const p = plan.preset;
-    const rows = plan.diff.map((d) => `${esc(d.label)}: ${esc(d.old)} → <b>${esc(d.new)}</b>`).join("<br>") || esc(t("st.preset.nochange"));
+    const rows = plan.diff.map((d) => `${esc(d.label)}: ${esc(d.old)} → <b>${esc(d.new)}</b>${p.stack && d.from ? ` <span class="muted">· ${esc(L(d.from))}</span>` : ""}`).join("<br>") || esc(t("st.preset.nochange"));
+    const ov = (plan.overridden || []).map((o) => esc(t("stk.overrides", { w: L(o.winner), l: L(o.loser), k: o.key }))).join("<br>");
     const body = h(`<div class="skulls">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
-      ${p.twists ? `<ul class="twists">${p.twists.map((x) => `<li><span class="tag ${x.score > 0 ? "no" : x.score < 0 ? "yes" : ""}">${x.score > 0 ? "+" : ""}${x.score}</span> ${esc(L(x.name))}</li>`).join("")}</ul>` : `<p>${esc(L(p.desc))}</p>`}
+      ${p.stack ? `<ol class="twists">${p.stack.map((x) => `<li>${x.icon} ${esc(L(x.name))}</li>`).join("")}</ol>${ov ? `<div class="alert unknown small"><b>${esc(t("stk.conflicts"))}</b><br>${ov}</div>` : ""}` : p.twists ? `<ul class="twists">${p.twists.map((x) => `<li><span class="tag ${x.score > 0 ? "no" : x.score < 0 ? "yes" : ""}">${x.score > 0 ? "+" : ""}${x.score}</span> ${esc(L(x.name))}</li>`).join("")}</ul>` : `<p>${esc(L(p.desc))}</p>`}
       <h4>${esc(t("st.preset.diff"))} (${plan.diff.length})</h4><div class="diff">${rows}</div>
       ${plan.modlets.length ? `<div class="alert newer_minor small"><b>XML modlet:</b> ${plan.modlet_desc.map(esc).join("; ")}<br>${esc(t("st.preset.modletHint"))}</div>` : ""}
       ${plan.skipped.length ? `<p class="muted small">${esc(t("st.preset.skipped", { n: plan.skipped.join(", ") }))}</p>` : ""}
@@ -573,8 +631,13 @@ async function presetDialog(req) {
     const okd = await dialog(`${p.icon} ${L(p.name)}`, body, t("st.preset.apply"));
     if (reroll) { req = { tier: req.tier }; continue; }
     if (!okd) return;
-    const send = p.seed ? { tier: p.tier, seed: p.seed } : { id: p.id };
-    if (await act(() => api("POST", sp("/preset"), send), t("st.saved"))) { S.status.preset = p.seed ? `${p.id}#${p.seed}` : p.id; loadSettings(); }
+    const send = req.stack ? req : p.seed ? { tier: p.tier, seed: p.seed } : { id: p.id };
+    if (await act(() => api("POST", sp("/preset"), send), t("st.saved"))) {
+      S.status.preset = p.seed ? `${p.id}#${p.seed}` : p.id;
+      S.status.preset_stack = req.stack || [p.seed ? { tier: p.tier, seed: p.seed } : { id: p.id }];
+      STACK_FOR = null;
+      loadSettings();
+    }
     return;
   }
 }

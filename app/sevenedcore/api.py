@@ -430,7 +430,7 @@ async def h_config_set(request):
     return ok()
 
 
-def preset_from_request(d):
+def _one_preset(d):
     if d.get("tier"):
         try:
             return presets.roll(str(d["tier"]), d.get("seed"))
@@ -438,8 +438,37 @@ def preset_from_request(d):
             raise web.HTTPBadRequest(text=str(e))
     pr = next((p for p in presets.PRESETS if p["id"] == str(d.get("id", ""))), None)
     if not pr:
-        raise web.HTTPNotFound(text="Unknown preset")
+        raise web.HTTPNotFound(text=f"Unknown preset {d.get('id')}")
     return pr
+
+
+def preset_from_request(d):
+    """One preset, a random roll, or a stack of them (first = highest priority)."""
+    if "stack" not in d:
+        return _one_preset(d)
+    items = d.get("stack") or []
+    if not isinstance(items, list) or not 1 <= len(items) <= 12:
+        raise web.HTTPBadRequest(text="Pick 1-12 presets to combine")
+    parts = [_one_preset(x) for x in items]
+    if len(parts) == 1:
+        return parts[0]
+    values, legacy, modlets_, source, overridden = {}, {}, [], {}, []
+    for pr in reversed(parts):                       # lowest priority first, higher ones overwrite
+        for k, v in pr["values"].items():
+            if k in source and values[k] != v:
+                overridden.append({"key": k, "loser": source[k], "winner": pr["name"]})
+            values[k] = v
+            source[k] = pr["name"]
+        legacy.update(pr.get("legacy") or {})
+        modlets_ += [m for m in pr.get("modlets") or [] if m not in modlets_]
+    return {"id": "stack", "icon": "🧩", "level": max(p["level"] for p in parts),
+            "tier": max((p["tier"] for p in parts), key=["easy", "medium", "hard", "extreme"].index),
+            "name": {lang: " + ".join(p["name"][lang] for p in parts) for lang in ("en", "cs")},
+            "desc": {lang: " · ".join(p["name"][lang] for p in parts) for lang in ("en", "cs")},
+            "values": values, "legacy": legacy, "modlets": modlets_, "reset_all": any(p["id"] == "standard" for p in parts),
+            "stack": [{"id": p["id"], "seed": p.get("seed"), "tier": p["tier"] if "seed" in p else None,
+                       "name": p["name"], "icon": p["icon"]} for p in parts],
+            "source": source, "overridden": overridden}
 
 
 def plan_preset(i, pr):
@@ -453,26 +482,26 @@ def plan_preset(i, pr):
         cur = sandbox.full(props.get("SandboxCode", ""))
         new = dict(cur)
         # undo the previous preset (or everything presets touch for "standard"), keep the rest
-        for k in (presets.managed_keys() if pr["id"] == "standard" else i.settings.get("preset_keys") or []):
+        for k in (presets.managed_keys() if pr["id"] == "standard" or pr.get("reset_all") else i.settings.get("preset_keys") or []):
             if k in sandbox.OPTIONS:
                 new[k] = sandbox.OPTIONS[k]["default"]
         for k, v in pr["values"].items():
             new[k] = sandbox.index_for(k, v)
         for k in sorted(set(new), key=lambda n: sandbox.OPTIONS[n]["id"]):
             if new[k] != cur[k]:
-                diff.append({"key": k, "label": sandbox.OPTIONS[k]["label"],
+                diff.append({"key": k, "label": sandbox.OPTIONS[k]["label"], "from": (pr.get("source") or {}).get(k),
                              "old": sandbox.value_label(k, cur[k]), "new": sandbox.value_label(k, new[k])})
         code = sandbox.encode(new)
         if code != (props.get("SandboxCode") or "A"):
             changes["SandboxCode"] = code
     else:
         target = {}
-        for k in (presets.managed_keys() if pr["id"] == "standard" else i.settings.get("preset_keys") or []):
+        for k in (presets.managed_keys() if pr["id"] == "standard" or pr.get("reset_all") else i.settings.get("preset_keys") or []):
             if k in presets.LEGACY:
                 prop, conv = presets.LEGACY[k]
                 o = sandbox.OPTIONS[k]
                 target[prop] = conv(sandbox.values(k)[o["default"]])
-        if pr["id"] == "standard":
+        if pr["id"] == "standard" or pr.get("reset_all"):
             target.update({"GameDifficulty": "1", "EnemyDifficulty": "0"})
         for k, v in pr["values"].items():
             if k in presets.LEGACY:
@@ -488,10 +517,10 @@ def plan_preset(i, pr):
                 changes[k] = v
                 diff.append({"key": k, "label": k, "old": props[k], "new": v})
     mods = modlets.applicable(pr.get("modlets") or [], sb_mode)
-    return {"preset": {k: pr[k] for k in ("id", "icon", "level", "tier", "name", "desc") if k in pr}
+    return {"preset": {k: pr[k] for k in ("id", "icon", "level", "tier", "name", "desc", "stack") if k in pr}
             | ({"seed": pr["seed"], "twists": pr["twists"], "score": pr["score"]} if "seed" in pr else {}),
             "sandbox": sb_mode, "changes": changes, "diff": diff, "skipped": skipped, "modlets": mods,
-            "modlet_desc": [modlets.MODLETS[m]["desc"] for m in mods]}
+            "modlet_desc": [modlets.MODLETS[m]["desc"] for m in mods], "overridden": pr.get("overridden") or []}
 
 
 async def h_preset_preview(request):
@@ -509,6 +538,8 @@ async def h_preset_apply(request):
     modlets.write(i.mods.on, plan["modlets"])
     i.settings["preset"] = pr["id"] + (f"#{pr['seed']}" if "seed" in pr else "")
     i.settings["preset_keys"] = sorted(pr["values"])
+    i.settings["preset_stack"] = [{"id": x["id"], "seed": x["seed"], "tier": x["tier"]} for x in pr["stack"]] \
+        if "stack" in pr else [{"id": pr["id"], "seed": pr.get("seed"), "tier": pr["tier"] if "seed" in pr else None}]
     i.save_settings()
     i.note(f"Preset applied: {pr['name']['en']} ({len(plan['diff'])} settings"
            + (f", modlet: {', '.join(plan['modlets'])}" if plan["modlets"] else "") + ") - applies after restart")

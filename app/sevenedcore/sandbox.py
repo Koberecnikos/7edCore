@@ -24,9 +24,17 @@ def value_label(name, i):
     disp = s["display"]
     if len(disp) == len(s["values"]) or i < len(disp):
         d = disp[i]
-        return {"none": "Off", "lblAll": "All", "xuiDefault": "Default", "xuiDurability": "Durability",
-                "xuiMaxDurability": "Max durability", "xuiBoth": "Both", "lblContextActionRecipes": "Recipes",
-                "xuiOptionsVideoTexQualityFull": "Full"}.get(d, d)
+        d = {"none": "Off", "lblAll": "All", "xuiDefault": "Default", "xuiDurability": "Durability",
+             "xuiMaxDurability": "Max durability", "xuiBoth": "Both", "lblContextActionRecipes": "Recipes",
+             "xuiOptionsVideoTexQualityFull": "Full"}.get(d, d)
+        if "{0}" in d:
+            d = d.replace("{0}", f"{v:g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v))
+        return d
+    tpl = next((d for d in disp if "{0}" in d), None)
+    if tpl and isinstance(v, (int, float)) and not isinstance(v, bool):
+        if tpl.endswith(" Day") and v != 1:
+            tpl += "s"
+        return tpl.replace("{0}", f"{v:g}")
     if s["format"] == "goPercent" and isinstance(v, (int, float)) and not isinstance(v, bool):
         return f"{round(v * 100)}%"
     return str(v)

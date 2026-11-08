@@ -137,6 +137,10 @@ const I18N = {
     "st.preset.modletHint": "Also installs a small server-side XML modlet (7edCore-Challenge in Mods). Players do not need to install anything.",
     "rnd.title": "Random challenge", "rnd.desc": "Rolls 3-5 twists - tougher, easier and just weird ones - balanced to the difficulty you pick. Reroll until you like it.",
     "rnd.reroll": "Reroll",
+    "stk.title": "Combine presets", "stk.hint": "Add presets with ＋ and drag to order them. The preset on top wins: it overrides the same settings of everything below it.",
+    "stk.empty": "Nothing selected. Use ＋ on a preset.", "stk.apply": "Preview & apply", "stk.clear": "Clear",
+    "stk.add": "Add to combination", "stk.addRandom": "Add random:", "stk.top": "highest priority", "stk.bottom": "lowest priority",
+    "stk.drag": "Drag to reorder", "stk.conflicts": "Overridden settings", "stk.overrides": "{w} overrides {l} ({k})",
     "confirm.title": "Are you sure?", "unit.min": "min",
   },
   cs: {
@@ -274,6 +278,10 @@ const I18N = {
     "st.preset.modletHint": "Nainstaluje i malý serverový XML modlet (7edCore-Challenge v Mods). Hráči nemusí nic instalovat.",
     "rnd.title": "Náhodná výzva", "rnd.desc": "Vylosuje 3-5 twistů - těžší, lehčí i jen bláznivé - vyvážené na zvolenou obtížnost. Losuj, dokud se ti nezalíbí.",
     "rnd.reroll": "Losovat znovu",
+    "stk.title": "Kombinace presetů", "stk.hint": "Přidej presety přes ＋ a přetažením je seřaď. Vyhrává preset nahoře: přepíše stejná nastavení všeho pod ním.",
+    "stk.empty": "Nic nevybráno. Použij ＋ u presetu.", "stk.apply": "Náhled a použít", "stk.clear": "Vyčistit",
+    "stk.add": "Přidat do kombinace", "stk.addRandom": "Přidat náhodný:", "stk.top": "nejvyšší priorita", "stk.bottom": "nejnižší priorita",
+    "stk.drag": "Přetáhni pro změnu pořadí", "stk.conflicts": "Přepsaná nastavení", "stk.overrides": "{w} přepisuje {l} ({k})",
     "confirm.title": "Opravdu?", "unit.min": "min",
   },
 };

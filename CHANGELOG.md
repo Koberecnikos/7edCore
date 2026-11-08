@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 - 2026-11-08
+
+- Combine presets: add several presets (and random rolls) to a combination, drag to order them; the preset on top has priority and overrides the same settings of the ones below
+- Preview shows which preset each change comes from and which settings were overridden
+- The applied combination is remembered per server
+- Value labels like "{0} Days" now show the real numbers
+
 ## 1.1.0 - 2026-11-08
 
 - Full support for V3 Sandbox Options: all 165 options editable in Game settings (Basic / Detailed), SandboxCode read, written and pasteable in Advanced

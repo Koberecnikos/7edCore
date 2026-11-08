@@ -39,6 +39,7 @@ DEFAULT_SETTINGS = {
     "update_window": "empty",       # empty (nobody online) | stopped (only while stopped) | restart (at scheduled restart)
     "preset": "",                   # last applied difficulty preset (informational)
     "preset_keys": [],              # options the last preset changed (undone by the next preset)
+    "preset_stack": [],             # applied presets in priority order [{"id", "seed", "tier"}]
 }
 ACTIONS = ("start", "stop", "restart", "update_restart", "backup")
 
@@ -159,7 +160,7 @@ class Instance:
                      "build": st.installed_build(self.branch), "busy": st.busy, "progress": st.progress},
             "compat": self.compat_check(), "notices": self.notices,
             "ram_limit_gb": self.settings.get("ram_limit_gb"), "pending": self.pending_what,
-            "preset": self.settings.get("preset"),
+            "preset": self.settings.get("preset"), "preset_stack": self.settings.get("preset_stack") or [],
         }
 
     # ---------------------------------------------------------- config
