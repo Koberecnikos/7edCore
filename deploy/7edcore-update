@@ -2,8 +2,9 @@
 # 7edCore host updater - run by 7edcore-update.timer every 5 minutes.
 # Talks to the panel through data/panel/selfupdate.json (policy, "update now", nobody-online flag).
 set -u
+[ -f /etc/default/7edcore ] && . /etc/default/7edcore      # SEVENEDCORE_DIR, SEVENEDCORE_DATA
 DIR=${SEVENEDCORE_DIR:-/opt/7edcore}
-PANEL="$DIR/data/panel"
+PANEL="${SEVENEDCORE_DATA:-$DIR/data}/panel"
 STATE="$DIR/.updater"
 PULL_EVERY=${PULL_EVERY:-21600}            # look for a new image at most every 6 h (unless "update now")
 cd "$DIR" || exit 1

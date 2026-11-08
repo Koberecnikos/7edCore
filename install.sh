@@ -42,10 +42,7 @@ mkdir -p /etc/systemd/system/docker.service.d
 curl -fsSL "$RAW/deploy/docker-stop-timeout.conf" -o /etc/systemd/system/docker.service.d/7edcore-stop-timeout.conf
 curl -fsSL "$RAW/deploy/7edcore-update.service" -o /etc/systemd/system/7edcore-update.service
 curl -fsSL "$RAW/deploy/7edcore-update.timer" -o /etc/systemd/system/7edcore-update.timer
-if [ "$DIR" != /opt/7edcore ]; then
-  mkdir -p /etc/systemd/system/7edcore-update.service.d
-  printf '[Service]\nEnvironment=SEVENEDCORE_DIR=%s\n' "$DIR" > /etc/systemd/system/7edcore-update.service.d/dir.conf
-fi
+[ -f /etc/default/7edcore ] || printf 'SEVENEDCORE_DIR=%s\nSEVENEDCORE_DATA=%s/data\n' "$DIR" "$DIR" > /etc/default/7edcore
 # power-loss handling for machines with a battery (laptop, mini PC with built-in UPS)
 POWERWATCH="${SEVENEDCORE_POWERWATCH:-auto}"
 if [ "$POWERWATCH" = auto ]; then
