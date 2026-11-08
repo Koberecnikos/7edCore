@@ -1,0 +1,22 @@
+# 7edCore - docker compose file (installed to /opt/7edcore by install.sh)
+services:
+  7edcore:
+    image: ghcr.io/koberecnikos/7edcore:latest
+    container_name: 7edcore
+    init: true
+    restart: unless-stopped
+    # on stop/update the panel saves and shuts down every game server first
+    stop_grace_period: 5m
+    ulimits:
+      nofile: { soft: 10240, hard: 10240 }
+    environment:
+      - TZ=${TZ:-Etc/UTC}
+      - MAX_SERVERS=4
+      # - PANEL_PASSWORD=change-me     # optional: fixed password instead of the first-run setup
+    ports:
+      - "8120:8120"                     # web panel - keep it on LAN / VPN, do not port-forward it
+      - "26900-26939:26900-26939/tcp"   # game: server k uses 26900+10k ...
+      - "26900-26939:26900-26939/udp"   # ... TCP and UDP (up to 4 servers)
+      - "8080-8083:8080-8083"           # optional built-in 7DTD web map of servers 1-4
+    volumes:
+      - ./data:/data

@@ -359,7 +359,7 @@ class Hub:
             await asyncio.sleep(1800)
 
     async def check_panel_update(self):
-        if not PANEL_REPO:
+        if not PANEL_REPO or not __version__[:1].isdigit():
             return
         try:
             r = await _get_json(f"https://api.github.com/repos/{PANEL_REPO}/releases/latest")

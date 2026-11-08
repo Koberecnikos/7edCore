@@ -1,2 +1,3 @@
-"""7edCore - self-hosted web panel for 7 Days to Die dedicated servers."""
-__version__ = "1.0.0"
+import os
+
+__version__ = os.environ.get("SEVENEDCORE_VERSION", "dev").lstrip("v")

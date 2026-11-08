@@ -1,0 +1,43 @@
+#!/bin/bash
+# 7edCore host updater - run by 7edcore-update.timer every 5 minutes.
+# Talks to the panel through data/panel/selfupdate.json (policy, "update now", nobody-online flag).
+set -u
+DIR=${SEVENEDCORE_DIR:-/opt/7edcore}
+PANEL="$DIR/data/panel"
+STATE="$DIR/.updater"
+PULL_EVERY=${PULL_EVERY:-21600}            # look for a new image at most every 6 h (unless "update now")
+cd "$DIR" || exit 1
+mkdir -p "$STATE" "$PANEL"
+now=$(date +%s)
+f="$PANEL/selfupdate.json"
+get() { grep -o "\"$1\": [^,}]*" "$f" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/"//g'; }
+policy=$(get policy); policy=${policy:-auto}
+request=$(get request); request=${request:-0}
+safe=$(get safe)
+last_request=$(cat "$STATE/last_request" 2>/dev/null || echo 0)
+last_pull=$(cat "$STATE/last_pull" 2>/dev/null || echo 0)
+status() { printf '{"last_run": %s, "result": "%s"}\n' "$now" "$1" > "$PANEL/updater.json"; echo "7edcore-update: $1"; }
+
+force=0
+[ "$request" -gt "$last_request" ] 2>/dev/null && force=1
+if [ "$force" = 0 ] && [ "$policy" != "auto" ]; then status "automatic updates are $policy"; exit 0; fi
+
+if [ "$force" = 1 ] || [ $((now - last_pull)) -ge "$PULL_EVERY" ]; then
+  if docker compose pull -q; then echo "$now" > "$STATE/last_pull"; else status "pull failed"; exit 1; fi
+fi
+image=$(docker compose config --images 2>/dev/null | head -1)
+running=$(docker inspect -f '{{.Image}}' 7edcore 2>/dev/null)
+latest=$(docker image inspect -f '{{.Id}}' "$image" 2>/dev/null)
+if [ -n "$latest" ] && [ "$running" != "$latest" ]; then
+  if [ "$force" = 1 ] || [ "$safe" = "true" ]; then
+    status "updating"
+    docker compose up -d && docker image prune -f >/dev/null
+    status "updated"
+  else
+    status "new version downloaded - waiting until nobody is playing"
+  fi
+else
+  status "up to date"
+fi
+[ "$force" = 1 ] && echo "$request" > "$STATE/last_request"
+exit 0

@@ -1,0 +1,8 @@
+[Unit]
+Description=7edCore updater (pulls a new 7edCore image and restarts the panel)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/7edcore-update
