@@ -1,7 +1,7 @@
 # 7edCore - docker compose file (installed to /opt/7edcore by install.sh)
 services:
   7edcore:
-    image: ghcr.io/koberecnikos/7edcore:latest
+    image: ghcr.io/koberecnikos/7edcore:${SEVENEDCORE_TAG:-latest}   # set by the 7edCore updater (.env)
     container_name: 7edcore
     init: true
     restart: unless-stopped

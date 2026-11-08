@@ -78,7 +78,7 @@ If you skip the updater, update by hand with `docker compose pull && docker comp
 
 | What | How |
 |---|---|
-| **7edCore** | The host updater checks for a new image every 6 hours. It restarts the panel only when nobody is online. Before the restart, every game server is saved and stopped, and servers that were running start again afterwards. You can set this to *auto*, *notify* or *off* under **Panel → 7edCore updates**, or use **Update now**. |
+| **7edCore** | The host updater checks for a new image every 6 hours. It restarts the panel only when nobody is online. Before the restart, every game server is saved and stopped, and servers that were running start again afterwards. You can set this to *auto*, *notify* or *off* under **Panel → 7edCore updates**, or use **Update now**. In the same place you can pin 7edCore to any release from GitHub, or switch back to *Latest*. |
 | **Game** | Set per server under **Automation → Updates**. Major versions always need you to confirm. |
 | **Mods** | Set per server under **Automation → Updates**, or use **Quick actions → Update mods**. |
 

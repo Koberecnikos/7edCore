@@ -116,10 +116,43 @@ async def h_global_set(request):
 
 async def h_selfupdate(request):
     d = await request.json()
-    if d.get("policy") not in selfupdate.POLICIES:
-        raise web.HTTPBadRequest(text="policy: auto, notify or off")
-    selfupdate.set_policy(d["policy"])
+    if "policy" in d:
+        if d["policy"] not in selfupdate.POLICIES:
+            raise web.HTTPBadRequest(text="policy: auto, notify or off")
+        selfupdate.set_policy(d["policy"])
+    if "version" in d:
+        v = str(d["version"]).lstrip("v")
+        if v != "latest" and not re.fullmatch(r"\d+\.\d+\.\d+", v):
+            raise web.HTTPBadRequest(text="version: latest or X.Y.Z")
+        if not selfupdate.status()["updater"]:
+            raise web.HTTPConflict(text="The 7edCore updater is not installed on this host")
+        selfupdate.set_version(v)
+        HUB.broadcast(f"7edCore version set to {v} - the panel will restart shortly")
     return ok()
+
+
+RELEASES = {"t": 0, "list": []}
+
+
+async def h_releases(request):
+    """7edCore releases from GitHub (cached 10 min) for the version picker."""
+    import time as _t
+    from .mods import _get_json
+    from .hub import PANEL_REPO
+    if not PANEL_REPO:
+        return web.json_response({"releases": [], "current": __import__("sevenedcore").__version__})
+    if _t.time() - RELEASES["t"] > 600:
+        try:
+            data = await _get_json(f"https://api.github.com/repos/{PANEL_REPO}/releases?per_page=30")
+            RELEASES["list"] = [{"version": r["tag_name"].lstrip("v"), "name": r.get("name") or r["tag_name"],
+                                 "published": r.get("published_at"), "url": r.get("html_url"),
+                                 "notes": (r.get("body") or "")[:1500], "prerelease": r.get("prerelease", False)}
+                                for r in data if not r.get("draft") and re.fullmatch(r"v?\d+\.\d+\.\d+", r.get("tag_name", ""))]
+            RELEASES["t"] = _t.time()
+        except web.HTTPException as e:
+            if not RELEASES["list"]:
+                raise web.HTTPBadGateway(text=f"GitHub releases not reachable: {e.text}")
+    return web.json_response({"releases": RELEASES["list"], "current": __import__("sevenedcore").__version__})
 
 
 async def h_selfupdate_now(request):
@@ -1070,6 +1103,7 @@ def routes(app):
     r.add_post("/api/global", h_global_set)
     r.add_post("/api/selfupdate", h_selfupdate)
     r.add_post("/api/selfupdate/now", h_selfupdate_now)
+    r.add_get("/api/selfupdate/releases", h_releases)
     r.add_get("/api/versions", h_versions)
     r.add_post("/api/versions/{branch}/{act}", h_version_action)
     r.add_post("/api/updates/check", h_updates_check)

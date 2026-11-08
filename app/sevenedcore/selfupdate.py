@@ -16,7 +16,7 @@ POLICIES = ("auto", "notify", "off")
 
 
 def _get():
-    return {"policy": "auto", "request": 0, "safe": False, "safe_since": 0, **load_json(FILE, {})}
+    return {"policy": "auto", "version": "latest", "request": 0, "safe": False, "safe_since": 0, **load_json(FILE, {})}
 
 
 def _put(d):
@@ -29,13 +29,21 @@ def _put(d):
 
 def status():
     d, u = _get(), load_json(UPDATER, {})
-    return {"policy": d["policy"], "updater": time.time() - float(u.get("last_run") or 0) < 3600,
+    return {"policy": d["policy"], "version": d["version"], "updater": time.time() - float(u.get("last_run") or 0) < 3600,
             "last_run": u.get("last_run"), "result": u.get("result")}
 
 
 def set_policy(p):
     d = _get()
     d["policy"] = p
+    _put(d)
+
+
+def set_version(v):
+    """'latest' or a release version like '1.2.0' (the updater pins the image tag)."""
+    d = _get()
+    d["version"] = v
+    d["request"] = int(time.time())
     _put(d)
 
 

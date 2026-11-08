@@ -8,20 +8,38 @@ PANEL="${SEVENEDCORE_DATA:-$DIR/data}/panel"
 STATE="$DIR/.updater"
 PULL_EVERY=${PULL_EVERY:-21600}            # look for a new image at most every 6 h (unless "update now")
 cd "$DIR" || exit 1
+# keep this updater itself current (once a day, from the main branch)
+SELF=$(readlink -f "$0")
+if [ -w "$SELF" ] && [ -z "$(find "$SELF" -mmin -1440 2>/dev/null)" ]; then
+  tmp=$(mktemp) && curl -fsSL -m 30 "https://raw.githubusercontent.com/${SEVENEDCORE_REPO:-Koberecnikos/7edCore}/main/deploy/7edcore-update" -o "$tmp" \
+    && bash -n "$tmp" && ! cmp -s "$tmp" "$SELF" && install -m 755 "$tmp" "$SELF" && echo "7edcore-update: updater updated" && rm -f "$tmp" && exec "$SELF" "$@"
+  rm -f "$tmp"; touch "$SELF"
+fi
 mkdir -p "$STATE" "$PANEL"
 now=$(date +%s)
 f="$PANEL/selfupdate.json"
 get() { grep -o "\"$1\": [^,}]*" "$f" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/"//g'; }
 policy=$(get policy); policy=${policy:-auto}
+want=$(get version); want=${want:-latest}
 request=$(get request); request=${request:-0}
 safe=$(get safe)
 last_request=$(cat "$STATE/last_request" 2>/dev/null || echo 0)
 last_pull=$(cat "$STATE/last_pull" 2>/dev/null || echo 0)
 status() { printf '{"last_run": %s, "result": "%s"}\n' "$now" "$1" > "$PANEL/updater.json"; echo "7edcore-update: $1"; }
 
+# image tag comes from .env (SEVENEDCORE_TAG); older compose files with a fixed :latest are converted once
+if grep -q 'ghcr.io/koberecnikos/7edcore:latest' compose.yaml 2>/dev/null; then
+  sed -i 's#ghcr.io/koberecnikos/7edcore:latest#ghcr.io/koberecnikos/7edcore:${SEVENEDCORE_TAG:-latest}#' compose.yaml
+fi
+cur_tag=$(grep -s '^SEVENEDCORE_TAG=' .env | cut -d= -f2); cur_tag=${cur_tag:-latest}
 force=0
 [ "$request" -gt "$last_request" ] 2>/dev/null && force=1
+if [ "$want" != "$cur_tag" ]; then
+  if grep -qs '^SEVENEDCORE_TAG=' .env; then sed -i "s/^SEVENEDCORE_TAG=.*/SEVENEDCORE_TAG=$want/" .env; else echo "SEVENEDCORE_TAG=$want" >> .env; fi
+  force=1
+fi
 if [ "$force" = 0 ] && [ "$policy" != "auto" ]; then status "automatic updates are $policy"; exit 0; fi
+if [ "$force" = 0 ] && [ "$want" != "latest" ]; then status "pinned to $want"; exit 0; fi
 
 if [ "$force" = 1 ] || [ $((now - last_pull)) -ge "$PULL_EVERY" ]; then
   if docker compose pull -q; then echo "$now" > "$STATE/last_pull"; else status "pull failed"; exit 1; fi

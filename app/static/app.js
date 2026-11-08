@@ -898,7 +898,9 @@ async function pagePanel() {
   ${users ? usersCard(users) : ""}
   <div class="card admin-only"><h3>${t("p.self")}</h3>
     <p>${esc(t("p.version", { v: OV.panel?.version }))}${OV.panel?.update ? ` → <b>${esc(OV.panel.update.version)}</b> <a href="${esc(OV.panel.update.url)}" target="_blank" rel="noopener">changelog</a>` : ""}</p>
-    <div class="form-grid"><div class="field"><label>${t("p.selfPolicy")}</label><select id="spPol">${["auto", "notify", "off"].map((v) => `<option value="${v}"${su.policy === v ? " selected" : ""}>${esc(t("p.sp." + v))}</option>`).join("")}</select></div></div>
+    <div class="form-grid"><div class="field"><label>${t("p.selfPolicy")}</label><select id="spPol">${["auto", "notify", "off"].map((v) => `<option value="${v}"${su.policy === v ? " selected" : ""}>${esc(t("p.sp." + v))}</option>`).join("")}</select></div>
+      <div class="field"><label>${t("p.version2")}</label><div class="row"><select id="spVer" style="flex:1"><option value="latest">${esc(t("p.latest"))}</option></select><button id="spVerBtn">${t("act.apply")}</button></div>
+        <div class="hint" id="spVerHint">${esc(t("p.versionHint"))}</div></div></div>
     ${su.updater ? `<div class="row" style="margin-top:10px"><button id="spNow"${OV.panel?.update ? ' class="primary"' : ""}>${t("p.selfNow")}</button></div>` : `<p class="muted small">${esc(t("p.selfNoUpdater"))}</p>`}
   </div>
   <div class="card"><h3>${t("p.password")} <span class="muted small">(${esc(ME.name)})</span></h3>${g.password_env && ME.name === "admin" ? `<p class="muted">${esc(t("p.pwEnv"))}</p>` : `
@@ -915,6 +917,21 @@ async function pagePanel() {
   if (users) bindUsers(users);
   if (!isAdmin()) { const pw0 = $("#pwSave"); if (pw0) pw0.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged")); return; }
   $("#spPol").onchange = () => act(() => api("POST", "/api/selfupdate", { policy: $("#spPol").value }), t("ok.saved"));
+  api("GET", "/api/selfupdate/releases").then((r) => {
+    const sel = $("#spVer"); if (!sel) return;
+    sel.insertAdjacentHTML("beforeend", r.releases.map((x) => `<option value="${esc(x.version)}">${esc(x.version)}${x.version === r.current ? " · " + esc(t("p.running")) : ""}${x.prerelease ? " (pre-release)" : ""} - ${esc((x.published || "").slice(0, 10))}</option>`).join(""));
+    sel.value = su.version || "latest";
+    sel.onchange = () => {
+      const x = r.releases.find((q) => q.version === sel.value);
+      $("#spVerHint").innerHTML = x ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a> · ${esc(x.notes.split("\n").filter(Boolean).slice(0, 6).join(" · "))}` : esc(t("p.versionHint"));
+    };
+  }).catch(() => {});
+  $("#spVerBtn").onclick = async () => {
+    const v = $("#spVer").value, cur = OV.panel?.version || "";
+    const older = v !== "latest" && /^\d/.test(cur) && v.split(".").map(Number).join(".") !== cur && v.localeCompare(cur, undefined, { numeric: true }) < 0;
+    if (older && !await confirmDlg(t("p.downgradeQ", { v, c: cur }))) return;
+    act(() => api("POST", "/api/selfupdate", { version: v }), t("p.selfRequested"));
+  };
   const now = $("#spNow"); if (now) now.onclick = () => act(() => api("POST", "/api/selfupdate/now"), t("p.selfRequested"));
   const pw = $("#pwSave"); if (pw) pw.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged"));
   $("#tkSave").onclick = async () => {

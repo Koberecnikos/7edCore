@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 - 2026-11-08
+
+- Panel → 7edCore updates: choose "Latest (automatic)" or pin any release from GitHub (with release notes); switching applies within a minute
+- The host updater pins the image through `SEVENEDCORE_TAG` in `.env` and keeps itself up to date
+
 ## 1.3.0 - 2026-11-08
 
 - User accounts instead of one shared password: admin, operator and viewer roles, per-user server access
