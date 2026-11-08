@@ -64,3 +64,28 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: GitHub release from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          V="${TAG#v}"
+          {
+            echo '**Install** (Linux x86_64 with systemd):'
+            echo '```bash'
+            echo "curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/install.sh | sudo bash"
+            echo '```'
+            echo "Installed servers update to this version automatically. Docker image: \`ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/7edcore:${V}\`"
+            echo
+            awk -v v="$V" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' CHANGELOG.md
+          } > notes.md
+          gh release create "$TAG" --verify-tag --title "7edCore $V" --notes-file notes.md
