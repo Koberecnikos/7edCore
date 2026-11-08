@@ -38,6 +38,7 @@ DEFAULT_SETTINGS = {
     "mod_updates": "notify",        # off | notify | auto            (auto = only releases made for this game version)
     "update_window": "empty",       # empty (nobody online) | stopped (only while stopped) | restart (at scheduled restart)
     "preset": "",                   # last applied difficulty preset (informational)
+    "preset_keys": [],              # options the last preset changed (undone by the next preset)
 }
 ACTIONS = ("start", "stop", "restart", "update_restart", "backup")
 

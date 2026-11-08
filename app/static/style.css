@@ -190,3 +190,9 @@ button.ghost:hover { color: var(--fg); }
 dialog .field { margin-bottom: 10px; }
 .dlg-actions { margin-top: 14px; }
 @media (max-width: 700px) { main { padding: 12px; } header { padding: 10px 12px; } #top { padding: 8px 10px; } }
+.tier { margin: 14px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; }
+.tier-easy { color: var(--green); } .tier-medium { color: var(--yellow); } .tier-hard { color: var(--acc2); } .tier-extreme { color: var(--red); }
+.preset.random { border-style: dashed; background: linear-gradient(135deg, var(--bg2), #2a1416); }
+.twists { margin: 6px 0; padding-left: 0; list-style: none; } .twists li { margin: 4px 0; }
+.cfg-item.nondefault select { color: var(--acc2); }
+dialog { max-width: min(640px, 94vw); }

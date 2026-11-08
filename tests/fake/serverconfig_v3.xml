@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<ServerSettings>
+	<property name="ServerName"				value="My Game Host"/>
+	<property name="ServerDescription"				value="A 7 Days to Die server"/>
+	<property name="ServerPassword"				value=""/>
+	<property name="Region"				value="NorthAmericaEast"/>
+	<property name="Language"				value="English"/>
+	<property name="ServerPort"				value="26900"/>
+	<property name="ServerVisibility"				value="2"/>
+	<property name="ServerMaxPlayerCount"				value="8"/>
+	<property name="ServerAdminSlots"				value="0"/>
+	<property name="WebDashboardEnabled"				value="false"/>
+	<property name="WebDashboardPort"				value="8080"/>
+	<property name="TelnetEnabled"				value="true"/>
+	<property name="TelnetPort"				value="8081"/>
+	<property name="TelnetPassword"				value=""/>
+	<property name="AdminFileName"				value="serveradmin.xml"/>
+	<property name="UserDataFolder"				value="absolute_path"/>
+	<property name="EACEnabled"				value="true"/>
+	<property name="GameWorld"				value="Navezgane"/>
+	<property name="WorldGenSeed"				value="MyGame"/>
+	<property name="WorldGenSize"				value="6144"/>
+	<property name="GameName"				value="MyGame"/>
+	<property name="GameMode"				value="GameModeSurvival"/>
+	<property name="PlayerSafeZoneLevel"				value="5"/>
+	<property name="MaxSpawnedZombies"				value="64"/>
+	<property name="PartySharedKillRange"				value="100"/>
+	<property name="PlayerKillingMode"				value="3"/>
+	<property name="LandClaimCount"				value="5"/>
+	<property name="SandboxCode"				value="AAAJABJACJADJARFBNC"/>
+</ServerSettings>

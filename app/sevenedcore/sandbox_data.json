@@ -1,0 +1,2684 @@
+{
+"game": "V 3.4",
+"version_char": "A",
+"sets": {
+"DamageValues": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.35,
+0.5,
+0.65,
+0.75,
+0.85,
+1,
+1.25,
+1.5,
+2,
+2.5,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"DamageValuesNoNone": {
+"type": "float",
+"values": [
+0.25,
+0.35,
+0.5,
+0.65,
+0.75,
+0.85,
+1,
+1.25,
+1.5,
+2,
+2.5,
+3
+],
+"display": [],
+"format": "goPercent"
+},
+"PlayerSpeedValues": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+0.6,
+0.7,
+0.8,
+0.9,
+1,
+1.1,
+1.2,
+1.3,
+1.4,
+1.5,
+2,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"PlayerSpeedValuesWithNone": {
+"type": "float",
+"values": [
+0.25,
+0.5,
+0.6,
+0.7,
+0.8,
+0.9,
+1,
+1.1,
+1.2,
+1.3,
+1.4,
+1.5,
+2,
+3
+],
+"display": [],
+"format": "goPercent"
+},
+"SpeedValues": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+2,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"StaminaUsage": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+1.75,
+2
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"LootAbundanceValues": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.35,
+0.5,
+0.65,
+0.75,
+0.85,
+1,
+1.25,
+1.5,
+2,
+3,
+4,
+5
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"ZombieRageChance": {
+"type": "float",
+"values": [
+0,
+0.15,
+0.3,
+0.35,
+0.4,
+0.5,
+0.6,
+0.75,
+0.9,
+1
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"ZombieSpeeds": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4
+],
+"display": [
+"Walk",
+"Jog",
+"Run",
+"Sprint",
+"Nightmare"
+],
+"format": ""
+},
+"AISmellMode": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"none",
+"Walk",
+"Jog",
+"Run",
+"Sprint",
+"Nightmare"
+],
+"format": ""
+},
+"JumpStrength": {
+"type": "float",
+"values": [
+0,
+0.5,
+1,
+1.25,
+1.5,
+2,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"StaminaRegen": {
+"type": "float",
+"values": [
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+2,
+3
+],
+"display": [],
+"format": "goPercent"
+},
+"XPGain": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+1.75,
+2,
+3,
+5
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"JarRefund": {
+"type": "float",
+"values": [
+0,
+0.05,
+0.1,
+0.2,
+0.3,
+0.4,
+0.5,
+0.6,
+0.7,
+0.8,
+0.9,
+1
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"BarterValues": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+1.75,
+2,
+3,
+4
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"DisabledLowDefaultHigh": {
+"type": "float",
+"values": [
+0,
+0.25,
+0.5,
+1,
+1.5,
+2
+],
+"display": [
+"Disabled",
+"Very Low",
+"Low",
+"Default",
+"High",
+"Very High"
+],
+"format": ""
+},
+"LowDefaultHigh": {
+"type": "float",
+"values": [
+0.25,
+0.5,
+1,
+1.5,
+2
+],
+"display": [
+"Very Low",
+"Low",
+"Default",
+"High",
+"Very High"
+],
+"format": ""
+},
+"Encumbrance": {
+"type": "float",
+"values": [
+10,
+1.35,
+1,
+0.7,
+0.35,
+0
+],
+"display": [
+"Disabled",
+"Low",
+"Default",
+"High",
+"Very High",
+"Full"
+],
+"format": ""
+},
+"SkillGainRate": {
+"type": "int",
+"values": [
+1,
+2,
+3,
+4,
+5
+],
+"display": [],
+"format": ""
+},
+"PointsPer": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6,
+7
+],
+"display": [
+"none"
+],
+"format": ""
+},
+"StarterSkillPoints": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10
+],
+"display": [
+"none"
+],
+"format": ""
+},
+"BloodMoonFrequency": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10,
+14,
+20,
+30
+],
+"display": [
+"Disabled",
+"{0} Day"
+],
+"format": "goDays"
+},
+"BloodMoonRange": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+7,
+10,
+14,
+20
+],
+"display": [
+"{0} Days",
+"{0} Day"
+],
+"format": "goDays"
+},
+"BloodMoonWarning": {
+"type": "int",
+"values": [
+0,
+1,
+2
+],
+"display": [
+"Disabled",
+"Morning",
+"Evening"
+],
+"format": ""
+},
+"BloodMoonCount": {
+"type": "int",
+"values": [
+4,
+6,
+8,
+10,
+12,
+16,
+24,
+32,
+64
+],
+"display": [],
+"format": "goEnemies"
+},
+"AirDrops": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6
+],
+"display": [
+"Disabled",
+"Every Day"
+],
+"format": "goDays"
+},
+"AirDropRandomTime": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6
+],
+"display": [
+"none",
+"Morning",
+"Mid Day",
+"Evening",
+"Night",
+"All Day",
+"Any"
+],
+"format": ""
+},
+"StormFrequency": {
+"type": "float",
+"values": [
+0,
+0.5,
+1,
+1.5,
+2,
+3,
+4,
+5
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"QuestPerTier": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10,
+11,
+12,
+13,
+14,
+15
+],
+"display": [
+"none"
+],
+"format": ""
+},
+"QuestPerDay": {
+"type": "int",
+"values": [
+-1,
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10
+],
+"display": [
+"Unlimited"
+],
+"format": ""
+},
+"TraderArea": {
+"type": "int",
+"values": [
+0,
+1,
+2
+],
+"display": [
+"Yes",
+"Claimable",
+"Not Claimable"
+],
+"format": ""
+},
+"TraderResetInterval": {
+"type": "int",
+"values": [
+-1,
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+14
+],
+"display": [
+"xuiDefault",
+"{0} Day"
+],
+"format": "goDays"
+},
+"ItemTierOptions": {
+"type": "int",
+"values": [
+-1,
+1,
+2,
+3,
+4,
+5,
+6
+],
+"display": [
+"xuiDefault"
+],
+"format": ""
+},
+"DewCollectorInput": {
+"type": "float",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"ApiaryInput": {
+"type": "float",
+"values": [
+0,
+0.2,
+0.4,
+0.6,
+0.8,
+1,
+1.5,
+2,
+3
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"CollectorOutput": {
+"type": "float",
+"values": [
+1,
+2,
+3,
+4,
+5
+],
+"display": [],
+"format": "goPercent"
+},
+"BackpackCrafting": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"No",
+"Yes",
+"Limited",
+"Workbench Only"
+],
+"format": ""
+},
+"DeathPenalty": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"none",
+"XP Only",
+"Injured",
+"Permanent Death"
+],
+"format": ""
+},
+"DropOnDeath": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6
+],
+"display": [
+"none",
+"lblAll",
+"Toolbelt Only",
+"Backpack Only",
+"Equipment",
+"Carried Only",
+"Delete All"
+],
+"format": ""
+},
+"DropOnQuit": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"none",
+"lblAll",
+"Toolbelt Only",
+"Backpack Only",
+"Equipment",
+"Carried Only"
+],
+"format": ""
+},
+"LoseItemsOnDeathType": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"none",
+"lblAll",
+"Toolbelt Only",
+"Backpack Only",
+"Equipment",
+"Carried Only"
+],
+"format": ""
+},
+"DegradeItemsOnDeath": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"none",
+"xuiDurability",
+"xuiMaxDurability",
+"xuiBoth"
+],
+"format": ""
+},
+"TraderHourPresets": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5,
+6
+],
+"display": [
+"xuiDefault",
+"Morning",
+"Mid Day",
+"Evening",
+"Night",
+"BM Closed",
+"Always Open"
+],
+"format": ""
+},
+"YesNo": {
+"type": "bool",
+"values": [
+false,
+true
+],
+"display": [
+"No",
+"Yes"
+],
+"format": ""
+},
+"Celebrate": {
+"type": "int",
+"values": [
+0,
+1,
+2
+],
+"display": [
+"No",
+"Yes",
+"Headshot Only"
+],
+"format": ""
+},
+"ShowXP": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"lblAll",
+"Bar Only",
+"Notifications Only",
+"none"
+],
+"format": ""
+},
+"HeadshotMode": {
+"type": "int",
+"values": [
+0,
+1,
+2
+],
+"display": [
+"none",
+"Headshot Only",
+"Headshot Finisher"
+],
+"format": ""
+},
+"MaxEnemyType": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"Normals",
+"Strongs",
+"Specials",
+"Ferals",
+"Radiated",
+"Elites"
+],
+"format": ""
+},
+"MaxTechType": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4
+],
+"display": [
+"none",
+"Tech 0",
+"Tech 1",
+"Tech 2",
+"Tech 3"
+],
+"format": ""
+},
+"LoseItemCount": {
+"type": "int",
+"values": [
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10
+],
+"display": [
+"1-3",
+"1-5",
+"1-10",
+"1-20",
+"3-5",
+"5-7",
+"5-10",
+"7-10",
+"10-15",
+"15-20"
+],
+"format": ""
+},
+"DayNightLength": {
+"type": "int",
+"values": [
+10,
+20,
+30,
+40,
+50,
+60,
+90,
+120
+],
+"display": [],
+"format": ""
+},
+"DayLightLength": {
+"type": "int",
+"values": [
+0,
+4,
+6,
+8,
+10,
+12,
+14,
+16,
+18,
+20,
+24
+],
+"display": [
+"Always Night",
+"4",
+"6",
+"8",
+"10",
+"12",
+"14",
+"16",
+"18",
+"20",
+"Always Day"
+],
+"format": ""
+},
+"LootRespawnDays": {
+"type": "int",
+"values": [
+-1,
+5,
+7,
+10,
+15,
+20,
+30,
+40,
+50
+],
+"display": [
+"Disabled"
+],
+"format": ""
+},
+"MaxChunkAge": {
+"type": "int",
+"values": [
+-1,
+1,
+3,
+5,
+7,
+10,
+20,
+30,
+40,
+50,
+75,
+100
+],
+"display": [
+"Disabled"
+],
+"format": ""
+},
+"Gravity": {
+"type": "float",
+"values": [
+0.5,
+0.6,
+0.7,
+0.8,
+0.9,
+1
+],
+"display": [],
+"format": "goPercent"
+},
+"SlowToFast": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"xuiDefault",
+"Very Slow",
+"Slow",
+"Normal",
+"Fast",
+"Very Fast"
+],
+"format": ""
+},
+"BiomeEnemyDensity": {
+"type": "int",
+"values": [
+-1,
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"none",
+"xuiDefault",
+"Very Low",
+"Low",
+"Medium",
+"High",
+"Very High"
+],
+"format": ""
+},
+"SmeltingType": {
+"type": "bool",
+"values": [
+false,
+true
+],
+"display": [
+"Smelter",
+"lblContextActionRecipes"
+],
+"format": ""
+},
+"RepairTypes": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"none",
+"Repair Only",
+"Combine Only",
+"xuiBoth"
+],
+"format": ""
+},
+"MaxDegradationAmounts": {
+"type": "float",
+"values": [
+0,
+0.05,
+0.1,
+0.15,
+0.2,
+0.25
+],
+"display": [
+"none"
+],
+"format": "goPercent"
+},
+"CropGrowthSpeed": {
+"type": "float",
+"values": [
+1000,
+0,
+0.2,
+0.5,
+0.75,
+1,
+1.5,
+2,
+3
+],
+"display": [
+"none",
+"xuiInstant"
+],
+"format": "goPercent"
+},
+"ZombieFeralSense": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3
+],
+"display": [
+"Disabled",
+"Day",
+"Night",
+"All"
+],
+"format": ""
+},
+"FullChickenStressEvent": {
+"type": "int",
+"values": [
+0,
+1,
+2,
+3,
+4,
+5
+],
+"display": [
+"none",
+"Random",
+"Chicken Drop",
+"Angry Chicken",
+"Zombie Horde",
+"Murder Chickens"
+],
+"format": ""
+},
+"ShowLocationTypes": {
+"type": "int",
+"values": [
+0,
+1,
+2
+],
+"display": [
+"No",
+"Yes",
+"Name Only"
+],
+"format": ""
+},
+"MaxStackSize": {
+"type": "float",
+"values": [
+0.25,
+0.5,
+0.75,
+1,
+1.25,
+1.5,
+1.75,
+2,
+2.5,
+3,
+4,
+5
+],
+"display": [],
+"format": "goPercent"
+}
+},
+"options": [
+{
+"name": "RangedDamage",
+"id": 0,
+"label": "Ranged Damage",
+"desc": "Damage dealt by the player with bows, firearms, and other ranged weapons.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "MeleeDamage",
+"id": 1,
+"label": "Melee Damage",
+"desc": "Damage dealt by the player with melee weapons and tools.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "BlockDamage",
+"id": 2,
+"label": "Block Damage",
+"desc": "How much damage players deal to blocks.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "TerrainDamage",
+"id": 3,
+"label": "Terrain Damage",
+"desc": "How much damage players deal to terrain.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "HeadshotMultiplier",
+"id": 4,
+"label": "Headshot Multiplier",
+"desc": "Multiplier applied to headshot damage players deal to entities.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "IncomingDamage",
+"id": 17,
+"label": "Player Damage In",
+"desc": "How much damage the player receives from all sources.",
+"category": "General",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "WalkSpeed",
+"id": 6,
+"label": "Walk Speed",
+"desc": "Adjusts player movement speed while walking.",
+"category": "General",
+"set": "PlayerSpeedValuesWithNone",
+"default": 6
+},
+{
+"name": "RunSpeed",
+"id": 7,
+"label": "Run Speed",
+"desc": "Adjusts player movement speed while running.",
+"category": "General",
+"set": "PlayerSpeedValues",
+"default": 7
+},
+{
+"name": "CrouchSpeed",
+"id": 5,
+"label": "Crouch Speed",
+"desc": "Adjusts player movement speed while crouching and walking.",
+"category": "General",
+"set": "PlayerSpeedValues",
+"default": 7
+},
+{
+"name": "CrouchRunSpeed",
+"id": 112,
+"label": "Crouch Run Speed",
+"desc": "Adjusts player movement speed while crouching and running.",
+"category": "General",
+"set": "PlayerSpeedValues",
+"default": 7
+},
+{
+"name": "JumpStrength",
+"id": 8,
+"label": "Jump Strength",
+"desc": "Modifies player jump height.",
+"category": "General",
+"set": "JumpStrength",
+"default": 2
+},
+{
+"name": "StaminaRegen",
+"id": 10,
+"label": "Stamina Regen",
+"desc": "Controls the rate stamina regenerates. Values are approximate.",
+"category": "General",
+"set": "StaminaRegen",
+"default": 3
+},
+{
+"name": "StaminaUsage",
+"id": 9,
+"label": "Stamina Usage",
+"desc": "Stamina cost for actions like running, jumping, and attacking. Values are approximate.",
+"category": "General",
+"set": "StaminaUsage",
+"default": 4
+},
+{
+"name": "XPMultiplier",
+"id": 18,
+"label": "XP Multiplier",
+"desc": "Multiplier applied to all experience gained.",
+"category": "General",
+"set": "XPGain",
+"default": 4
+},
+{
+"name": "ShowXP",
+"id": 19,
+"label": "Show XP",
+"desc": "Hide or show the XP bar and XP pop-up on screen.",
+"category": "General",
+"set": "ShowXP",
+"default": 0
+},
+{
+"name": "PlayerLevelBonusApplied",
+"id": 11,
+"label": "Level Stat Bonus",
+"desc": "Determines whether health and stamina increase per level.",
+"category": "General",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "SkillGainRate",
+"id": 116,
+"label": "Skill Gain Rate",
+"desc": "Adjusts how many levels are required to earn skill points.",
+"category": "General",
+"set": "SkillGainRate",
+"default": 0
+},
+{
+"name": "SkillPointsPerLevel",
+"id": 117,
+"label": "Skill Gain Amount",
+"desc": "Controls how many skill points are gained when skill points are awarded.",
+"category": "General",
+"set": "PointsPer",
+"default": 1
+},
+{
+"name": "NewbieCoat",
+"id": 15,
+"label": "New Player Buff",
+"desc": "If enabled, new players spawn with the beginner protection buff.",
+"category": "General",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "DeathPenalty",
+"id": 26,
+"label": "Death Penalty",
+"desc": "Determines the death penalty applied after death.\\n\\nNone = No penalty.\\nXP Only = Classic XP loss.\\nInjured = Some debuffs persist and food/water is reset to 50% on respawn.\\nPermanent Death = Character reset.",
+"category": "General",
+"set": "DeathPenalty",
+"default": 1
+},
+{
+"name": "LoseItemsOnDeathType",
+"id": 22,
+"label": "Lose On Death",
+"desc": "Sets which items are considered for loss on death.\\n\\nNone = Nothing\\nAll = All items.\\nToolbelt = Only toolbelt items.\\nBackpack = Only backpack items.\\nEquipment = Worn armor and clothing.\\nCarried Only = Items from toolbelt and backpack.",
+"category": "General",
+"set": "LoseItemsOnDeathType",
+"default": 0
+},
+{
+"name": "LoseItemsOnDeathCount",
+"id": 23,
+"label": "Death Loss Count",
+"desc": "Sets the number of random items lost on death.",
+"category": "General",
+"set": "LoseItemCount",
+"default": 0
+},
+{
+"name": "DegradeItemsOnDeath",
+"id": 24,
+"label": "Death Degradation",
+"desc": "Sets whether items degrade on death.\\n\\nNone = No loss.\\nDurability = Reduces an amount of current durability, which can be repaired.\\nMax Durability = Reduces maximum durability, lowering the repair cap.\\nBoth = Items lose both current and maximum durability.",
+"category": "General",
+"set": "DegradeItemsOnDeath",
+"default": 0
+},
+{
+"name": "DegradeAmountOnDeath",
+"id": 25,
+"label": "Death Degradation Amount",
+"desc": "When Death Degradation is enabled, this setting determines the percentage of durability lost on death.",
+"category": "General",
+"set": "MaxDegradationAmounts",
+"default": 2
+},
+{
+"name": "DropOnDeath",
+"id": 27,
+"label": "Drop On Death",
+"desc": "Which items are dropped on death.\\n\\nNone = Drop nothing.\\nAll = Drop both backpack and toolbelt.\\nToolbelt Only = Drop items on toolbelt.\\nBackpack Only = Drop items in the backpack.\\nDelete All = Delete all items.",
+"category": "General",
+"set": "DropOnDeath",
+"default": 1
+},
+{
+"name": "DropOnQuit",
+"id": 28,
+"label": "Drop On Quit",
+"desc": "Which items are dropped on quit.\\n\\nNothing = Drop nothing.\\nEverything = Drop both backpack and toolbelt.\\nToolbelt = Drop items on toolbelt.\\nBackpack = Drop items in the backpack.",
+"category": "General",
+"set": "DropOnQuit",
+"default": 0
+},
+{
+"name": "HungerMultiplier",
+"id": 161,
+"label": "Hunger Multiplier",
+"desc": "Controls how quickly players consume food. Higher values increase food consumption.",
+"category": "General",
+"set": "StaminaUsage",
+"default": 4
+},
+{
+"name": "ThirstMultiplier",
+"id": 162,
+"label": "Thirst Multiplier",
+"desc": "Controls how quickly players consume water. Higher values increase water consumption.",
+"category": "General",
+"set": "StaminaUsage",
+"default": 4
+},
+{
+"name": "InfectionChance",
+"id": 160,
+"label": "Infection Chance",
+"desc": "Increases or decreases the player's chance for infection.",
+"category": "General",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "InfectionRate",
+"id": 29,
+"label": "Infection Rate",
+"desc": "Adjusts how quickly infections progress.",
+"category": "General",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "StackSizeMultiplier",
+"id": 163,
+"label": "Stack Size Multiplier",
+"desc": "Multiplier applied to the stack size of all stackable items. Maximum stack size is 30,000.",
+"category": "General",
+"set": "MaxStackSize",
+"default": 3
+},
+{
+"name": "EncumbranceModifier",
+"id": 20,
+"label": "Encumbrance Slots",
+"desc": "Controls the number of encumbered backpack slots. Values are Disabled (no encumbrance) to Full (maximum encumbrance). Default uses XML config values.",
+"category": "General",
+"set": "Encumbrance",
+"default": 2
+},
+{
+"name": "JarRefund",
+"id": 12,
+"label": "Jar Refund",
+"desc": "Chance of jars returned from consuming items.",
+"category": "General",
+"set": "JarRefund",
+"default": 7
+},
+{
+"name": "EnemySpawnMode",
+"id": 30,
+"label": "Enemy Spawning",
+"desc": "Enable or disable enemy spawning.",
+"category": "Entities",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "MaxEnemyTier",
+"id": 43,
+"label": "Max Enemy Tier",
+"desc": "Highest tier of zombie types that can spawn.",
+"category": "Entities",
+"set": "MaxEnemyType",
+"default": 5
+},
+{
+"name": "BiomeDayEnemyDensity",
+"id": 46,
+"label": "Day Enemy Density",
+"desc": "Overrides daytime biome enemy density and sets how many enemies spawn in each biome. Default uses XML config values.",
+"category": "Entities",
+"set": "BiomeEnemyDensity",
+"default": 1
+},
+{
+"name": "BiomeDayZombieRespawn",
+"id": 44,
+"label": "Day Enemy Respawn",
+"desc": "Increases the respawn rate of enemies during the daytime in active biomes. Default uses XML config values.",
+"category": "Entities",
+"set": "SlowToFast",
+"default": 0
+},
+{
+"name": "BiomeDayAnimalDensity",
+"id": 155,
+"label": "Day Animal Density",
+"desc": "Overrides daytime biome animal density and sets how many animals spawn in each biome. Default uses XML config values.",
+"category": "Entities",
+"set": "BiomeEnemyDensity",
+"default": 1
+},
+{
+"name": "BiomeDayAnimalRespawn",
+"id": 45,
+"label": "Day Animal Respawn",
+"desc": "Increases the respawn rate of animals during the daytime in active biomes. Affects non-zombie passive and aggressive food sources. Default uses XML config values.",
+"category": "Entities",
+"set": "SlowToFast",
+"default": 0
+},
+{
+"name": "BiomeNightEnemyDensity",
+"id": 158,
+"label": "Night Enemy Density",
+"desc": "Overrides nighttime biome enemy density and sets how many enemies spawn in each biome. Default uses XML config values.",
+"category": "Entities",
+"set": "BiomeEnemyDensity",
+"default": 1
+},
+{
+"name": "BiomeNightZombieRespawn",
+"id": 156,
+"label": "Night Enemy Respawn",
+"desc": "Increases the respawn rate of enemies during the nighttime in active biomes. Default uses XML config values.",
+"category": "Entities",
+"set": "SlowToFast",
+"default": 0
+},
+{
+"name": "BiomeNightAnimalDensity",
+"id": 159,
+"label": "Night Animal Density",
+"desc": "Overrides nighttime biome animal density and sets how many animals spawn in each biome. Default uses XML config values.",
+"category": "Entities",
+"set": "BiomeEnemyDensity",
+"default": 1
+},
+{
+"name": "BiomeNightAnimalRespawn",
+"id": 157,
+"label": "Night Animal Respawn",
+"desc": "Increases the respawn rate of animals during the nighttime in active biomes. Affects non-zombie passive and aggressive food sources. Default uses XML config values.",
+"category": "Entities",
+"set": "SlowToFast",
+"default": 0
+},
+{
+"name": "EntityDamage",
+"id": 31,
+"label": "Enemy Damage Dealt",
+"desc": "Controls how much damage enemies do to players. This stacks with other incoming damage players receive.",
+"category": "Entities",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "EntityIncomingDamage",
+"id": 42,
+"label": "Entity Damage In",
+"desc": "Damage entities, such as enemies and animals, receive from players.",
+"category": "Entities",
+"set": "DamageValuesNoNone",
+"default": 6
+},
+{
+"name": "BlockDamageAI",
+"id": 32,
+"label": "Enemy Block Damage",
+"desc": "How much damage enemies deal to blocks.",
+"category": "Entities",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "BlockDamageAIBM",
+"id": 33,
+"label": "BM Block Damage",
+"desc": "Damage enemies do to blocks during Blood Moons.",
+"category": "Entities",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "HeadshotMode",
+"id": 16,
+"label": "Headshot Mode",
+"desc": "Determines how headshot damage is handled.\\n\\nHeadshot Only = enemies can only be damaged by headshots.\\nHeadshot Finisher = body shots deal damage, but only a headshot can finish them.\\n\\nDoes not apply to passive animals.",
+"category": "Entities",
+"set": "HeadshotMode",
+"default": 0
+},
+{
+"name": "ShowHealthBars",
+"id": 13,
+"label": "Entity Health Bars",
+"desc": "Show or hide entity health bars.",
+"category": "Entities",
+"set": "YesNo",
+"default": 0
+},
+{
+"name": "ShowEnemyDamage",
+"id": 14,
+"label": "Show Entity Damage",
+"desc": "Display floating damage numbers when entities are hit.",
+"category": "Entities",
+"set": "YesNo",
+"default": 0
+},
+{
+"name": "ZombieMove",
+"id": 34,
+"label": "Zombie Day Speed",
+"desc": "Sets zombie movement speed during daytime for normal zombies. Does not affect ferals and specials.",
+"category": "Entities",
+"set": "ZombieSpeeds",
+"default": 0
+},
+{
+"name": "ZombieMoveNight",
+"id": 35,
+"label": "Zombie Night Speed",
+"desc": "Sets zombie movement speed at night for normal zombies. Does not affect ferals and specials.",
+"category": "Entities",
+"set": "ZombieSpeeds",
+"default": 3
+},
+{
+"name": "ZombieFeralMove",
+"id": 36,
+"label": "Zombie Feral Speed",
+"desc": "Sets movement speed of feral zombies.",
+"category": "Entities",
+"set": "ZombieSpeeds",
+"default": 3
+},
+{
+"name": "ZombieBMMove",
+"id": 37,
+"label": "Zombie BM Speed",
+"desc": "Controls zombie movement speed during Blood Moon hordes and storms.",
+"category": "Entities",
+"set": "ZombieSpeeds",
+"default": 3
+},
+{
+"name": "ZombieFeralSense",
+"id": 38,
+"label": "Zombie Feral Sense",
+"desc": "How easily zombies detect players through sight and sound.",
+"category": "Entities",
+"set": "ZombieFeralSense",
+"default": 0
+},
+{
+"name": "AISmellMode",
+"id": 39,
+"label": "AI Smell Mode",
+"desc": "Enable or disable zombie scent tracking, and sets how fast they move when they detect a smell.",
+"category": "Entities",
+"set": "AISmellMode",
+"default": 3
+},
+{
+"name": "ZombieRageChance",
+"id": 41,
+"label": "Zombie Rage",
+"desc": "Chance for zombies to enter rage mode when damaged.",
+"category": "Entities",
+"set": "ZombieRageChance",
+"default": 1
+},
+{
+"name": "AllowZombieDigging",
+"id": 40,
+"label": "Zombie Digging",
+"desc": "Allow zombies to dig down through terrain. Can still dig sideways.",
+"category": "Entities",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "ZombiesEatAnimals",
+"id": 47,
+"label": "Zombies Eat Animals",
+"desc": "Determines whether zombies eat animal corpses.",
+"category": "Entities",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "GlobalGSModifier",
+"id": 60,
+"label": "Global Game Stage",
+"desc": "Determines enemy types, difficulty scaling, loot quality, and Blood Moon intensity based on your level and days survived. A higher value increases difficulty. Default uses XML config values.",
+"category": "World",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "BiomeGSModifier",
+"id": 61,
+"label": "Biome Game Stage",
+"desc": "Biome based difficulty modifier. Harder biomes raise enemy strength and loot stage beyond your base progression. Default uses XML config values.",
+"category": "World",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "BiomeProgression",
+"id": 55,
+"label": "Biome Progression",
+"desc": "Enable biome hazards. Weather and Storms are not affected by this setting.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "TemperatureSurvival",
+"id": 56,
+"label": "Temperature Survival",
+"desc": "Controls whether environmental temperature (hot and cold) affect the player.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "MaxTechType",
+"id": 74,
+"label": "Max Tech Type",
+"desc": "Globally sets the highest available tech type for weapons and items allowing control over progression and gameplay pacing. See examples below.\\n\\nTech 0 = Stone and Pipe\\nTech 1 = Iron and KV-47\\nTech 2 = Steel and Tactical Assault\\nTech 3 = Auger and M60",
+"category": "World",
+"set": "MaxTechType",
+"default": 4
+},
+{
+"name": "WorkstationsInTheWild",
+"id": 73,
+"label": "Workstations In The Wild",
+"desc": "Allow functional workstations to spawn in world. Applied on new Navezgane or RWG map generation.",
+"category": "World",
+"set": "JarRefund",
+"default": 0
+},
+{
+"name": "BloodMoonFrequency",
+"id": 48,
+"label": "Blood Moon Frequency",
+"desc": "Number of in-game days between Blood Moons. Disabled = No Blood Moons.",
+"category": "World",
+"set": "BloodMoonFrequency",
+"default": 7
+},
+{
+"name": "BloodMoonRange",
+"id": 49,
+"label": "Blood Moon Range",
+"desc": "Number of days after Blood Moon frequency the event can occur.\\n\\nFor example: A frequency of 7 + a range of 5 randomizes the Blood Moon between day 7 and day 12.\\n\\n0 Days = No randomness.",
+"category": "World",
+"set": "BloodMoonRange",
+"default": 0
+},
+{
+"name": "BloodMoonEnemyCount",
+"id": 51,
+"label": "Blood Moon Count",
+"desc": "Controls the maximum number of zombies alive Per Player during a Blood Moon.\\n\\nNearby players share a group cap of up to 30 zombies. If the cap would be exceeded, game stage scaling increases the difficulty instead. The world cap is about 1.9x the MaxSpawnedZombies. Lower game stages can reduce the number of spawns.\\n\\nIncreasing this setting can greatly impact performance.",
+"category": "World",
+"set": "BloodMoonCount",
+"default": 2
+},
+{
+"name": "BloodMoonWarning",
+"id": 50,
+"label": "Blood Moon Warning",
+"desc": "Sets when the Blood Moon warning appears on the HUD and the day number changes to red.",
+"category": "World",
+"set": "BloodMoonWarning",
+"default": 1
+},
+{
+"name": "AirDropFrequency",
+"id": 52,
+"label": "Air Drops",
+"desc": "How often supply drops occur.",
+"category": "World",
+"set": "AirDrops",
+"default": 3
+},
+{
+"name": "AirDropRandomTime",
+"id": 54,
+"label": "Air Drop Variance",
+"desc": "Allows control over when the air drops appear. Pick a specific time for predictable air drops, or Any for total randomness.\\n\\nNone = The default noon air drop.\\nMorning = 04:00 - 10:00\\nMid Day = 10:00 - 14:00\\nEvening = 15:00 - 20:00\\nNight = 20:00 - 24:00\\nAll Day = 04:00 - 20:00",
+"category": "World",
+"set": "AirDropRandomTime",
+"default": 0
+},
+{
+"name": "StormFreq",
+"id": 57,
+"label": "Storm Frequency",
+"desc": "Adjusts the frequency of storms. None disables storms.",
+"category": "World",
+"set": "StormFrequency",
+"default": 2
+},
+{
+"name": "StormWarning",
+"id": 58,
+"label": "Storm Warning",
+"desc": "Controls whether the player hears the storm siren and sees an on-screen storm warning.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "HeatMapSensitivity",
+"id": 59,
+"label": "Heat Map Sensitivity",
+"desc": "Controls heat buildup from player activity. Higher heat increases the chance for screamer spawns. Default uses XML config values.",
+"category": "World",
+"set": "DisabledLowDefaultHigh",
+"default": 3
+},
+{
+"name": "DayNightLength",
+"id": 66,
+"label": "24 Hour Cycle",
+"desc": "How many real life minutes it takes for 24 hours to pass in the game.",
+"category": "World",
+"set": "DayNightLength",
+"default": 5
+},
+{
+"name": "DayLightLength",
+"id": 67,
+"label": "Daylight Length",
+"desc": "Sets the number of in-game daylight hours. Always Night and Always Day behave as expected. Daylight duration settings:\\n\\n 4 = 10:00 - 14:00\\n 6 = 09:00 - 15:00\\n 8 = 08:00 - 16:00\\n10 = 07:00 - 17:00\\n12 = 06:00 - 18:00\\n14 = 05:00 - 19:00\\n16 = 04:00 - 20:00\\n18 = 04:00 - 22:00\\n20 = 02:00 - 22:00",
+"category": "World",
+"set": "DayLightLength",
+"default": 8
+},
+{
+"name": "AirDropMarker",
+"id": 53,
+"label": "Mark Air Drops",
+"desc": "Display map and compass markers for supply drop locations.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "AllowMap",
+"id": 68,
+"label": "Allow Map",
+"desc": "Enable in-game map.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "AllowCompass",
+"id": 69,
+"label": "Allow Compass",
+"desc": "Show player compass.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "AllowScreenMarkers",
+"id": 70,
+"label": "Allow Screen Markers",
+"desc": "Show on-screen navigational markers. Map markers remain visible.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "ShowLocationInfo",
+"id": 71,
+"label": "Show Location Info",
+"desc": "Show biome and POI name and difficulty.",
+"category": "World",
+"set": "ShowLocationTypes",
+"default": 1
+},
+{
+"name": "ShowDayTime",
+"id": 72,
+"label": "Show Day/Time",
+"desc": "Show on-screen day and time information. If set to No, Bloodmoon Warning is also disabled.",
+"category": "World",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "LootMaxTier",
+"id": 77,
+"label": "Max Loot Quality",
+"desc": "Sets the highest quality of weapons and items that can appear in loot.",
+"category": "Resources",
+"set": "ItemTierOptions",
+"default": 0
+},
+{
+"name": "GlobalLSModifier",
+"id": 62,
+"label": "Global Loot Stage",
+"desc": "Global multiplier applied to player loot stage. Default uses XML config values.",
+"category": "Resources",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "BiomeLSModifier",
+"id": 63,
+"label": "Biome Loot Stage",
+"desc": "Loot stage multiplier applied per biome. Default uses XML config values.",
+"category": "Resources",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "POITierLSModifier",
+"id": 64,
+"label": "POI Loot Stage",
+"desc": "Loot stage multiplier based on POI tier. Default uses XML config values.",
+"category": "Resources",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "LootRespawnDays",
+"id": 75,
+"label": "Loot Respawn Days",
+"desc": "The number of in-game days before loot containers in unvisited areas reset.",
+"category": "Resources",
+"set": "LootRespawnDays",
+"default": 2
+},
+{
+"name": "LootTimer",
+"id": 76,
+"label": "Loot Timer",
+"desc": "Time required to loot containers.",
+"category": "Resources",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "LootBagChance",
+"id": 90,
+"label": "Loot Bag Drop",
+"desc": "Multiplier applied to chance for enemies to drop loot bags on death.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "GlobalLootCount",
+"id": 78,
+"label": "Loot Abundance",
+"desc": "Globally adjusts the overall amount of loot found in world. \"None\" disables all loot, including zombie bag drops and supply crates.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "FoodLootCount",
+"id": 79,
+"label": "Food Abundance",
+"desc": "Amount of food found in containers.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "DrinkLootCount",
+"id": 80,
+"label": "Drink Abundance",
+"desc": "Amount of drinks found in containers.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "MedicalLootCount",
+"id": 81,
+"label": "Medical Abundance",
+"desc": "Amount of medical supplies found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "AmmoLootCount",
+"id": 82,
+"label": "Ammo Abundance",
+"desc": "Amount of ammo found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "ResourceLootCount",
+"id": 83,
+"label": "Resource Abundance",
+"desc": "Amount of resource items found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "ArmorLootCount",
+"id": 84,
+"label": "Armor Abundance",
+"desc": "Amount of armor and armor parts found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "MeleeLootCount",
+"id": 85,
+"label": "Melee Abundance",
+"desc": "Amount of melee weapons and parts found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "RangedLootCount",
+"id": 86,
+"label": "Ranged Abundance",
+"desc": "Amount of ranged weapons and parts found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "DukesLootCount",
+"id": 87,
+"label": "Currency Abundance",
+"desc": "Amount of Duke coins and old cash found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "CraftingMagazinesLootCount",
+"id": 88,
+"label": "Magazine Abundance",
+"desc": "Controls the amount of crafting magazines found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "BookLootCount",
+"id": 111,
+"label": "Book Abundance",
+"desc": "Controls the amount of books and schematics found in loot.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "TreasureMapChance",
+"id": 89,
+"label": "Treasure Map Chance",
+"desc": "Multiplier applied to chance for treasure maps to spawn in loot containers and enemy loot bags.",
+"category": "Resources",
+"set": "PlayerSpeedValues",
+"default": 7
+},
+{
+"name": "MiningOutput",
+"id": 101,
+"label": "Mining Yield",
+"desc": "Controls the amount of ore gained from mining. Can impact in-game challenges if disabled.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "CropOutput",
+"id": 91,
+"label": "Crop Yield",
+"desc": "Controls the amount of resources harvested from wild and player planted crops. Can impact in-game challenges if disabled.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "SeedDropOutput",
+"id": 92,
+"label": "Seed Drop",
+"desc": "The amount of seeds gained from player planted crop harvest. Does not increase the chance for seeds dropping or seeds from trees.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "HarvestingOutput",
+"id": 102,
+"label": "Resource Yield",
+"desc": "Controls the amount of resources gained from harvesting blocks and items. Does not affect ores, seeds, or crops. Can impact in-game challenges if disabled.",
+"category": "Resources",
+"set": "LootAbundanceValues",
+"default": 7
+},
+{
+"name": "CropGrowthSpeed",
+"id": 93,
+"label": "Crop Growth",
+"desc": "Adjusts growth speed of player-planted crops and trees. A higher percent results in longer growth time. Note: Existing saves will require replanting crops for changes to take effect.",
+"category": "Resources",
+"set": "CropGrowthSpeed",
+"default": 5
+},
+{
+"name": "CraftingProgression",
+"id": 96,
+"label": "Crafting Progression",
+"desc": "Enable or disable magazine and schematic based crafting progression.",
+"category": "Crafting",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "CraftingMaxTier",
+"id": 100,
+"label": "Crafting Max Quality",
+"desc": "Sets the highest quality of crafted items.",
+"category": "Crafting",
+"set": "ItemTierOptions",
+"default": 0
+},
+{
+"name": "PointsPerMagazine",
+"id": 115,
+"label": "Magazine Progress",
+"desc": "The progression gained from reading skill magazines.",
+"category": "Crafting",
+"set": "PointsPer",
+"default": 1
+},
+{
+"name": "BackpackCrafting",
+"id": 94,
+"label": "Backpack Crafting",
+"desc": "Controls what items the player can craft directly from their backpack.\\n\\nNo disables backpack crafting.\\nYes allows crafting in the backpack.\\nLimited allows crafting a limited list of recipes in the backpack.\\nWorkbench Only allows crafting of the workbench, but nothing else is crafted in the backpack.",
+"category": "Crafting",
+"set": "BackpackCrafting",
+"default": 1
+},
+{
+"name": "WorkstationCrafting",
+"id": 95,
+"label": "Workstation Crafting",
+"desc": "Yes allows crafting in workstations. No allows player backpack crafting only.",
+"category": "Crafting",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "SmeltingType",
+"id": 104,
+"label": "Smelter Type",
+"desc": "Controls how forge crafting works. Smelt items into the forge or craft directly using materials from your backpack.",
+"category": "Crafting",
+"set": "SmeltingType",
+"default": 0
+},
+{
+"name": "CraftingTime",
+"id": 97,
+"label": "Crafting Timer",
+"desc": "Time required to craft items.",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "CraftingInput",
+"id": 98,
+"label": "Crafting Cost",
+"desc": "Amount of materials required for crafting (excludes resource bundles).",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "CraftingOutput",
+"id": 99,
+"label": "Crafting Yield",
+"desc": "Number of items produced per craft (excludes resource bundles).",
+"category": "Crafting",
+"set": "StaminaRegen",
+"default": 3
+},
+{
+"name": "ScrappingOutput",
+"id": 103,
+"label": "Scrapping Yield",
+"desc": "Amount received when scrapping items.",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "DewCollectorTime",
+"id": 105,
+"label": "Dew Collector Time",
+"desc": "Adjusts the time it takes for the dew collector to produce water.",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "DewCollectorOutput",
+"id": 106,
+"label": "Dew Collector Yield",
+"desc": "The amount of water the dew collector generates per cycle.",
+"category": "Crafting",
+"set": "CollectorOutput",
+"default": 0
+},
+{
+"name": "DewCollectorInput",
+"id": 107,
+"label": "Dew Collector Input",
+"desc": "Sets the number of jars required to begin dew collection.",
+"category": "Crafting",
+"set": "DewCollectorInput",
+"default": 1
+},
+{
+"name": "ApiaryTime",
+"id": 108,
+"label": "Apiary Time",
+"desc": "Adjusts the time it takes for the apiary to produce honey.",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "ApiaryOutput",
+"id": 109,
+"label": "Apiary Yield",
+"desc": "The amount of honey generated per production cycle.",
+"category": "Crafting",
+"set": "CollectorOutput",
+"default": 0
+},
+{
+"name": "ApiaryInput",
+"id": 110,
+"label": "Apiary Input",
+"desc": "Sets the amount of flowers needed to begin honey production.",
+"category": "Crafting",
+"set": "ApiaryInput",
+"default": 5
+},
+{
+"name": "ChickenCoopTime",
+"id": 152,
+"label": "Chicken Coop Time",
+"desc": "Adjusts the time it takes for the chicken coop to produce chickens, eggs, and feathers.",
+"category": "Crafting",
+"set": "SpeedValues",
+"default": 4
+},
+{
+"name": "ChickenCoopOutput",
+"id": 153,
+"label": "Chicken Coop Yield",
+"desc": "The amount of chickens, eggs, and feathers generated per production cycle.",
+"category": "Crafting",
+"set": "CollectorOutput",
+"default": 0
+},
+{
+"name": "ChickenCoopInput",
+"id": 154,
+"label": "Chicken Coop Input",
+"desc": "Sets the amount of feed needed to begin production.",
+"category": "Crafting",
+"set": "ApiaryInput",
+"default": 5
+},
+{
+"name": "FullChickenStressEvent",
+"id": 164,
+"label": "Chicken Stress Event",
+"desc": "Enable an event when held chickens reach 100% stress. \"None\" disables events, while \"Random\" selects one of the events below at random.\\n\\nDrop Chicken = Your chicken escapes your grasp.\\nAngry Chicken = Your chicken turns against you.\\nZombie Horde = Your chicken's stress summons a zombie horde.\\nMurder Chickens = Angry chickens unite against you.",
+"category": "Crafting",
+"set": "FullChickenStressEvent",
+"default": 1
+},
+{
+"name": "ItemDegradation",
+"id": 21,
+"label": "Item Degradation",
+"desc": "How fast weapons and tools lose durability. Default uses XML config values.",
+"category": "Crafting",
+"set": "DisabledLowDefaultHigh",
+"default": 3
+},
+{
+"name": "RepairTypes",
+"id": 113,
+"label": "Repair Method",
+"desc": "Determines how items are repaired:\\n\\nNone = No repair\\nRepair Only = Repair Kits Only\\nCombine Only = Repair on Combine Station\\nBoth = Repair Kits and Combine Station",
+"category": "Crafting",
+"set": "RepairTypes",
+"default": 3
+},
+{
+"name": "MaxDegradationAmount",
+"id": 114,
+"label": "Repair Degradation",
+"desc": "Determines how much an item degrades when repaired.",
+"category": "Crafting",
+"set": "MaxDegradationAmounts",
+"default": 0
+},
+{
+"name": "TradersEnabled",
+"id": 128,
+"label": "Trading Enabled",
+"desc": "Enable trading with NPC traders.",
+"category": "Traders",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "VendingEnabled",
+"id": 129,
+"label": "Vending Enabled",
+"desc": "Enable or disable vending machine functionality.",
+"category": "Traders",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "TraderHours",
+"id": 127,
+"label": "Trader Hours",
+"desc": "Controls trader opening and closing hours. 24 Hour Cycle and Daylight Length do not affect this setting. BM Closed means closed only during blood moon. Default uses XML values.\\n\\nXML Default = 04:00-22:00\\n       Morning = 04:00-12:00\\n       Mid Day = 10:00-18:00\\n       Evening = 16:00-22:00\\n           Night = 22:00-04:00",
+"category": "Traders",
+"set": "TraderHourPresets",
+"default": 0
+},
+{
+"name": "TraderProtection",
+"id": 132,
+"label": "Trader Protection",
+"desc": "Sets damage protection for trader compounds, and whether players can claim the area.",
+"category": "Traders",
+"set": "TraderArea",
+"default": 0
+},
+{
+"name": "TraderDialog",
+"id": 126,
+"label": "Trading Dialog",
+"desc": "Toggles the trader voice lines and on-screen dialogue.",
+"category": "Traders",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "GlobalTSModifier",
+"id": 65,
+"label": "Global Trader Stage",
+"desc": "Global modifier for trader stage progression. Controls the quality and variety of items sold by traders. Default uses XML config values.",
+"category": "Traders",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "TraderMaxTier",
+"id": 136,
+"label": "Trader Max Quality",
+"desc": "Sets the highest item quality available for purchase from the trader.",
+"category": "Traders",
+"set": "ItemTierOptions",
+"default": 0
+},
+{
+"name": "TraderItemAbundance",
+"id": 134,
+"label": "Trader Item Count",
+"desc": "The quantity of items for sale at the trader. Lower values make supplies more limited and scarce. Default uses XML config values.",
+"category": "Traders",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "VendingItemAbundance",
+"id": 138,
+"label": "Vending Item Count",
+"desc": "The quantity of items for sale in trader vending machines. Lower values make supplies more limited and scarce. Default uses XML config values.",
+"category": "Traders",
+"set": "LowDefaultHigh",
+"default": 2
+},
+{
+"name": "TraderResetInterval",
+"id": 133,
+"label": "Trader Reset",
+"desc": "Sets how often traders reset inventory. Default uses XML config values.",
+"category": "Traders",
+"set": "TraderResetInterval",
+"default": 0
+},
+{
+"name": "VendingResetInterval",
+"id": 137,
+"label": "Vending Reset",
+"desc": "Sets how often trader vending machines reset inventory. Default uses XML config values.",
+"category": "Traders",
+"set": "TraderResetInterval",
+"default": 0
+},
+{
+"name": "TraderSellPrices",
+"id": 130,
+"label": "Sell Price",
+"desc": "Adjusts the price for items players sell to traders.",
+"category": "Traders",
+"set": "BarterValues",
+"default": 4
+},
+{
+"name": "TraderBuyPrices",
+"id": 131,
+"label": "Buy Price",
+"desc": "Adjusts the price for items players purchase from traders.",
+"category": "Traders",
+"set": "BarterValues",
+"default": 4
+},
+{
+"name": "TraderBuyLimit",
+"id": 135,
+"label": "Trader Buy Limit",
+"desc": "Maximum number of each item the trader will buy before refusing more. Lower values limit how much you can sell per restock cycle.",
+"category": "Traders",
+"set": "StarterSkillPoints",
+"default": 3
+},
+{
+"name": "ChallengesEnabled",
+"id": 139,
+"label": "Challenges",
+"desc": "Enable the in-game challenge system.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "QuestsEnabled",
+"id": 118,
+"label": "Quests",
+"desc": "Enable or disable quests in your game.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "IntroChallengesEnabled",
+"id": 140,
+"label": "Intro Challenges",
+"desc": "Enable the step-by-step introductory challenge for new players.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "IntroQuestEnabled",
+"id": 119,
+"label": "Intro Quest",
+"desc": "Bypass the opening buried supply quest to access full quest progression.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "TraderToTraderQuestsEnabled",
+"id": 120,
+"label": "Trade Routes",
+"desc": "Enable the option to receive quests to other traders.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "BuriedQuestsEnabled",
+"id": 124,
+"label": "Buried Quests",
+"desc": "Allow buried quests to appear in the trader quest lists. No = only POI quests.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "POIQuestsEnabled",
+"id": 125,
+"label": "POI Quests",
+"desc": "Allow POI quests to appear in the trader quest lists. No = only buried quests.",
+"category": "Tasks",
+"set": "YesNo",
+"default": 1
+},
+{
+"name": "QuestsPerTier",
+"id": 122,
+"label": "Quests Per Tier",
+"desc": "Number of completed quests required to unlock the next tier. Higher values slow progression between tiers. None = no limit and allows access to all quest tiers.",
+"category": "Tasks",
+"set": "QuestPerTier",
+"default": 10
+},
+{
+"name": "QuestProgressionDailyLimit",
+"id": 123,
+"label": "Quests Per Day",
+"desc": "Number of daily quests that count towards trader progression. Additional quests still grant XP and rewards, but do not advance trader tier progresssion.",
+"category": "Tasks",
+"set": "QuestPerDay",
+"default": 4
+},
+{
+"name": "StarterSkillPoints",
+"id": 121,
+"label": "Base Skill Points",
+"desc": "Number of skill points awarded after completing intro challenges, or at game start if the intro challenges are disabled.",
+"category": "Tasks",
+"set": "StarterSkillPoints",
+"default": 4
+},
+{
+"name": "VehicleFuelUsage",
+"id": 141,
+"label": "Vehicle Fuel Usage",
+"desc": "Adjusts the fuel consumption rate for vehicles.",
+"category": "Misc",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "VehicleEntityDamage",
+"id": 142,
+"label": "Vehicle Entity Damage",
+"desc": "How much damage vehicles do to entities.",
+"category": "Misc",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "VehicleBlockDamage",
+"id": 143,
+"label": "Vehicle Block Damage",
+"desc": "How much damage vehicles do to blocks.",
+"category": "Misc",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "VehicleSelfDamage",
+"id": 144,
+"label": "Vehicle Self Damage",
+"desc": "How much damage your vehicle receives from collisions.",
+"category": "Misc",
+"set": "DamageValues",
+"default": 7
+},
+{
+"name": "ElectricalOutput",
+"id": 145,
+"label": "Electrical Output",
+"desc": "Controls how much electrical power is produced.",
+"category": "Misc",
+"set": "StaminaRegen",
+"default": 3
+},
+{
+"name": "SillyCelebrate",
+"id": 146,
+"label": "Celebrate Kills",
+"desc": "Enable celebratory confetti particles on entity kill. \"Headshots Only\" option triggers confetti only for headshot kills allowing body shots to animals for meat harvesting. \"Headshots Only\" option does not apply to passive animals.",
+"category": "Misc",
+"set": "Celebrate",
+"default": 0
+},
+{
+"name": "SillyBigHeads",
+"id": 147,
+"label": "Big Heads",
+"desc": "Enable a \"big head mode\" on zombies, animals, and traders.",
+"category": "Misc",
+"set": "YesNo",
+"default": 0
+},
+{
+"name": "SillyTinyZombies",
+"id": 148,
+"label": "Tiny Zombies",
+"desc": "Enable smaller versions of the zombies.",
+"category": "Misc",
+"set": "YesNo",
+"default": 0
+},
+{
+"name": "SillyLowGravity",
+"id": 150,
+"label": "Gravity",
+"desc": "Controls the amount of gravity in-game.",
+"category": "Misc",
+"set": "Gravity",
+"default": 5
+},
+{
+"name": "SillySounds",
+"id": 149,
+"label": "Silly Sounds",
+"desc": "Enable humorous sounds for in-game actions.",
+"category": "Misc",
+"set": "YesNo",
+"default": 0
+},
+{
+"name": "SillyBlackandWhite",
+"id": 151,
+"label": "Black and White",
+"desc": "Enable a classic, greyscale palette inspired by classic 1960's horror films.",
+"category": "Misc",
+"set": "YesNo",
+"default": 0
+}
+]
+}

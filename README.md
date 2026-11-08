@@ -23,8 +23,9 @@ Several servers on one machine, each with its own game version, mods, backups an
   - Install from a ZIP, a GitHub repository or a URL.
   - *Find compatible version* picks the newest release made for your game version.
   - Updates keep the files you edited. If the author also changed one of those files, their version is saved next to yours as `*.new`.
-- **Game settings in three levels.** Basic covers the world, difficulty, max players and party XP range. Detailed has every gameplay option, grouped by category. Advanced covers networking and permissions.
-- **Difficulty presets and challenges.** Night Terrors, Horde Week, Feral Wasteland, Siege Builders, Short Fuse, Hardcore Survivor and Insane Apocalypse. Loot stays at standard values.
+- **Game settings in three levels.** Basic covers the world, difficulty, max players and party XP range. Detailed has every gameplay option, grouped by category. Advanced covers networking and permissions. On V3 and newer, all 165 Sandbox Options are editable directly, with no code generator needed, and the SandboxCode can be copied or pasted.
+- **Difficulty presets and challenges.** 17 presets from easy to extreme: Weekend Survivor, Loot Goblin, Bookworm, Builder's Paradise, Party Mode, Night Terrors, Horde Week, Siege Builders, Short Fuse, Black Market, Lost Knowledge, Feral Wasteland, Lootbag Only, Stone Age, Hardcore Survivor and Insane Apocalypse. Each one shows a preview of every change before you apply it. Some challenges add a small server-side XML modlet, which players do not need to install.
+- **Random challenge.** Pick Easy, Medium or Hard and get 3–5 balanced twists. They can be harder, easier or just strange: sprinters, a black market, rare magazines, moon gravity, headshots only and more. Reroll until you like the result. Every roll has a seed, so you can recreate it.
 - **World management.**
   - Choose a map, generate an RWG world, or switch between saves.
   - Import a single-player world from a ZIP.
@@ -151,6 +152,10 @@ python3 tests/ui_test.py  http://127.0.0.1:18200 testpass123 /tmp/shots
 ```
 
 The backend is Python and aiohttp, in `app/sevenedcore`. The frontend is plain JS with no build step, in `app/static`. Translations live in `app/static/i18n.js`. To add a language, copy the `en` block.
+
+### Sandbox option tables
+
+V3 stores gameplay settings as a `SandboxCode`. The code holds an index into each option's value list, and those lists live in the game's code. `app/sevenedcore/sandbox_data.json` is generated from the decompiled game with `tools/sandbox_extract.py`; the script's header has instructions. Regenerate the tables when a game update changes the options.
 
 ### Releasing
 

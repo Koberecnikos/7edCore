@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 - 2026-11-08
+
+- Full support for V3 Sandbox Options: all 165 options editable in Game settings (Basic / Detailed), SandboxCode read, written and pasteable in Advanced
+- Presets now work on V3 (SandboxCode) and on older versions (serverconfig.xml) alike, with a preview of every change before applying; applying a preset undoes the previous one
+- New presets: Weekend Survivor, Loot Goblin, Bookworm, Builder's Paradise, Party Mode, Black Market, Lost Knowledge, Lootbag Only, Stone Age
+- Random challenge (Easy / Medium / Hard): 3-5 balanced twists from a pool of 32, reroll until you like it, reproducible by seed
+- Challenge modlets: server-side XML patches generated per server (e.g. empty world loot for Lootbag Only), no client install
+- tools/sandbox_extract.py to regenerate the option tables for new game versions
+
 ## 1.0.0 - 2026-11-08
 
 First public release.

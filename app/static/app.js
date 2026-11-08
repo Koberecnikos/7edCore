@@ -431,14 +431,28 @@ function dropZone(el, cb) {
 }
 
 // ------------------------------------------------------------------ game settings (basic / detailed / advanced)
-let LEVEL = "basic", CFG = null, CHANGES = {};
+let LEVEL = "basic", CFG = null, SB = null, CHANGES = {}, SBCH = {};
+const SB_BASIC = ["IncomingDamage", "EntityDamage", "XPMultiplier", "DayNightLength", "ZombieMove", "ZombieMoveNight",
+  "BloodMoonFrequency", "BloodMoonEnemyCount", "GlobalLootCount", "DeathPenalty", "DropOnDeath"];
+const SB_CATS = { General: ["General", "Obecné"], Entities: ["Zombies & animals", "Zombíci a zvířata"], World: ["World", "Svět"],
+  Resources: ["Loot & resources", "Loot a suroviny"], Crafting: ["Crafting", "Craftění"], Tasks: ["Quests & skills", "Questy a dovednosti"],
+  Traders: ["Traders", "Obchodníci"], Misc: ["Fun & misc", "Zábava a ostatní"] };
 async function loadSettings() {
-  const d = await act(() => api("GET", sp("/config")));
+  const [d, sb] = await Promise.all([act(() => api("GET", sp("/config"))), api("GET", sp("/sandbox")).catch(() => ({ supported: false }))]);
   if (!d) return;
-  CFG = d; CHANGES = {};
+  CFG = d; SB = sb.supported ? sb : null; CHANGES = {}; SBCH = {};
   renderSettings();
 }
 function cfgValue(n) { return n in CHANGES ? CHANGES[n] : CFG.props.find((p) => p.name === n)?.value; }
+function sbField(o) {
+  const cur = o.name in SBCH ? SBCH[o.name] : SB.current[o.name];
+  return `<div class="cfg-item${o.name in SBCH ? " changed" : ""}${cur !== o.default ? " nondefault" : ""}"><label>${esc(o.label)}</label><div class="key">${esc(o.name)}</div>
+    <select data-sb="${o.name}">${o.values.map((v, i) => `<option value="${i}"${i === cur ? " selected" : ""}>${esc(v)}${i === o.default ? " ·" : ""}</option>`).join("")}</select>
+    <div class="hint">${esc(o.desc)}</div></div>`;
+}
+function sbGroup(id, title, opts) {
+  return opts.length ? `<div class="cfg-group" id="cat-${id}"><h2>${esc(title)}</h2><div class="cfg-grid">${opts.map(sbField).join("")}</div></div>` : "";
+}
 function renderSettings() {
   const el = $("#tab-settings");
   if (!CFG.exists) { el.innerHTML = `<p class="empty">${esc(t("st.noconfig"))}</p>`; return; }
@@ -446,54 +460,84 @@ function renderSettings() {
   const cats = META.categories.filter((c) => c.level === LEVEL);
   const byCat = {};
   for (const p of CFG.props) {
+    if (p.name === "SandboxCode") continue;
     const m = META.props[p.name];
-    const cat = m ? m.cat : "other";
-    (byCat[cat] ||= []).push(p.name);
+    (byCat[m ? m.cat : "other"] ||= []).push(p.name);
   }
-  // keep catalog order inside categories
-  for (const c of Object.keys(byCat)) byCat[c].sort((a, b) => Object.keys(META.props).indexOf(a) - Object.keys(META.props).indexOf(b));
+  const order = Object.keys(META.props);
+  for (const c of Object.keys(byCat)) byCat[c].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const sbOpts = SB ? SB.options : [];
   let html = `<div class="seg">${["basic", "detailed", "advanced"].map((l) => `<button data-lv="${l}" class="${l === LEVEL ? "active" : ""}">${t("st." + l)}</button>`).join("")}</div>`;
+  if (SB) html += `<p class="muted small">${esc(t("sb.info", { v: SB.game }))}</p>`;
   if (LEVEL === "basic") {
-    const curP = S.status.settings?.preset;
-    html += `<h2>${t("st.presets")}</h2><p class="muted small">${esc(t("st.presetsHint"))}</p><div class="presets">${PRESETS.map((p) => {
-      const diff = Object.entries(p.values).filter(([k, v]) => have.has(k) && cfgValue(k) !== v);
-      return `<div class="preset${diff.length ? "" : " active"}"><h4>${p.icon} ${esc(L(p.name))}</h4><div class="skulls" title="${esc(t("st.level"))}">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
-        <p>${esc(L(p.desc))}</p><div class="row">${diff.length ? `<button class="small primary" data-pr="${p.id}">${t("st.preset.apply")}</button><span class="muted small">${diff.length} ${esc(t("st.preset.diff").toLowerCase())}</span>` : `<span class="tag on">${esc(t("st.preset.nochange"))}</span>`}</div></div>`;
-    }).join("")}</div>`;
+    html += `<h2>${t("st.presets")}</h2><p class="muted small">${esc(t("st.presetsHint"))}</p>`;
+    const cur = S.status.preset || "";
+    for (const tier of ["easy", "medium", "hard", "extreme"]) {
+      const list = PRESETS.filter((p) => p.tier === tier);
+      if (!list.length) continue;
+      html += `<h4 class="tier tier-${tier}">${esc(t("tier." + tier))}</h4><div class="presets">${list.map((p) => presetCard(p, cur)).join("")}${tier === "medium" ? randomCard() : ""}</div>`;
+    }
   } else {
-    html += `<div class="row" style="margin-bottom:10px"><input id="cfgSearch" data-iph="st.search" placeholder="${esc(t("st.search"))}" style="flex:1;max-width:360px"></div>`;
+    html += `<div class="row" style="margin-bottom:10px"><input id="cfgSearch" placeholder="${esc(t("st.search"))}" style="flex:1;max-width:360px"></div>`;
     if (LEVEL === "advanced") html += `<div class="alert newer_minor">${esc(t("st.advancedWarn"))}</div>`;
-    html += `<div class="cat-nav">${cats.filter((c) => byCat[c.id]?.length).map((c) => `<a data-go="${c.id}">${esc(L(c.label))}</a>`).join("")}</div>`;
+    const nav = cats.filter((c) => byCat[c.id]?.length).map((c) => [c.id, L(c.label)]);
+    if (SB && LEVEL === "detailed") Object.keys(SB_CATS).forEach((c) => nav.unshift(["sb-" + c, SB_CATS[c][LANG === "cs" ? 1 : 0]]));
+    html += `<div class="cat-nav">${nav.map(([id, lab]) => `<a data-go="${id}">${esc(lab)}</a>`).join("")}</div>`;
   }
+  if (SB && LEVEL === "basic") html += sbGroup("sb-basic", t("sb.basic"), SB_BASIC.map((n) => sbOpts.find((o) => o.name === n)).filter(Boolean));
+  if (SB && LEVEL === "detailed") for (const c of Object.keys(SB_CATS).reverse().reverse()) html += sbGroup("sb-" + c, SB_CATS[c][LANG === "cs" ? 1 : 0], sbOpts.filter((o) => o.category === c));
   for (const c of cats) {
     const names = byCat[c.id] || [];
-    if (!names.length) continue;
-    html += `<div class="cfg-group" id="cat-${c.id}"><h2>${esc(L(c.label))}</h2><div class="cfg-grid">${names.map((n) => cfgField(n, have.get(n))).join("")}</div></div>`;
+    if (names.length) html += `<div class="cfg-group" id="cat-${c.id}"><h2>${esc(L(c.label))}</h2><div class="cfg-grid">${names.map((n) => cfgField(n, have.get(n))).join("")}</div></div>`;
   }
+  if (SB && LEVEL === "advanced") html += `<div class="cfg-group"><h2>SandboxCode</h2><p class="muted small">${esc(t("sb.codeHint"))}</p>
+    <div class="row"><input id="sbCode" value="${esc(SB.code)}" style="flex:1;font-family:var(--mono)"><button id="sbCodeSave">${t("act.apply")}</button></div></div>`;
   html += `<div class="row" style="margin-top:18px"><button type="button" id="cxDl">⤓ ${t("cx.export")}</button>
     <button id="cxSave">🗄 ${t("cx.exportServer")}</button><button id="cxImp">⤒ ${t("cx.import")}</button></div>`;
   html += `<div class="savebar" id="saveBar" hidden><span id="saveInfo"></span><span class="sp"></span><button id="cfgReset">${t("act.cancel")}</button><button class="primary" id="cfgSave">${t("act.save")}</button></div>
     <p class="small"><a href="#" id="rawCfg">${esc(t("st.raw"))}</a></p>`;
   el.innerHTML = html;
   $$("[data-lv]", el).forEach((b) => b.onclick = () => { LEVEL = b.dataset.lv; renderSettings(); });
-  $$("[data-go]", el).forEach((a) => a.onclick = () => $("#cat-" + a.dataset.go).scrollIntoView({ behavior: "smooth" }));
-  $$("[data-pr]", el).forEach((b) => b.onclick = () => presetDialog(PRESETS.find((p) => p.id === b.dataset.pr), have));
+  $$("[data-go]", el).forEach((a) => a.onclick = () => $("#cat-" + a.dataset.go)?.scrollIntoView({ behavior: "smooth" }));
+  $$("[data-pr]", el).forEach((b) => b.onclick = () => presetDialog({ id: b.dataset.pr }));
+  $$("[data-rnd]", el).forEach((b) => b.onclick = () => presetDialog({ tier: b.dataset.rnd }));
+  const dirty = () => { const k = Object.keys(CHANGES).length + Object.keys(SBCH).length; $("#saveBar").hidden = !k; $("#saveInfo").textContent = t("st.unsaved", { n: k }); };
   $$("[data-cfg]", el).forEach((inp) => inp.oninput = inp.onchange = () => {
     const n = inp.dataset.cfg, orig = have.get(n).value;
     const v = inp.type === "checkbox" ? String(inp.checked) : inp.value;
     if (v === orig) delete CHANGES[n]; else CHANGES[n] = v;
     inp.closest(".cfg-item").classList.toggle("changed", n in CHANGES);
-    const k = Object.keys(CHANGES).length;
-    $("#saveBar").hidden = !k; $("#saveInfo").textContent = t("st.unsaved", { n: k });
+    dirty();
+  });
+  $$("[data-sb]", el).forEach((sel) => sel.onchange = () => {
+    const n = sel.dataset.sb, v = Number(sel.value);
+    if (v === SB.current[n]) delete SBCH[n]; else SBCH[n] = v;
+    sel.closest(".cfg-item").classList.toggle("changed", n in SBCH);
+    dirty();
   });
   const srch = $("#cfgSearch");
   if (srch) srch.oninput = () => { const q = srch.value.toLowerCase(); $$(".cfg-item", el).forEach((i) => i.hidden = q && !i.textContent.toLowerCase().includes(q)); };
-  $("#cfgReset").onclick = () => { CHANGES = {}; renderSettings(); };
-  $("#cfgSave").onclick = async () => { if (await act(() => api("POST", sp("/config"), { changes: CHANGES }), t("st.saved"))) loadSettings(); };
+  $("#cfgReset").onclick = () => { CHANGES = {}; SBCH = {}; renderSettings(); };
+  $("#cfgSave").onclick = async () => {
+    if (Object.keys(CHANGES).length && !await act(() => api("POST", sp("/config"), { changes: CHANGES }))) return;
+    if (Object.keys(SBCH).length && !await act(() => api("POST", sp("/sandbox"), { values: SBCH }))) return;
+    toast(t("st.saved")); loadSettings();
+  };
+  const sc = $("#sbCodeSave"); if (sc) sc.onclick = async () => { if (await act(() => api("POST", sp("/sandbox"), { code: $("#sbCode").value }), t("st.saved"))) loadSettings(); };
   $("#cxDl").onclick = () => { location.href = sp("/export"); };
   $("#cxSave").onclick = async () => { const r = await act(() => api("POST", sp("/export"))); if (r) toast(t("cx.saved", { p: r.path })); };
   $("#cxImp").onclick = importConfigDialog;
   $("#rawCfg").onclick = (e) => { e.preventDefault(); openTab("files"); editFile(CFG.path); };
+}
+function presetCard(p, cur) {
+  return `<div class="preset${cur === p.id ? " active" : ""}"><h4>${p.icon} ${esc(L(p.name))}</h4><div class="skulls" title="${esc(t("st.level"))}">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
+    <p>${esc(L(p.desc))}</p><div class="row">${cur === p.id ? `<span class="tag on">${esc(t("st.preset.active"))}</span>` : ""}
+    ${p.modlets?.length ? `<span class="tag warnt" title="${esc(t("st.preset.modletHint"))}">XML</span>` : ""}<span class="sp"></span>
+    <button class="small primary" data-pr="${p.id}">${t("st.preset.show")}</button></div></div>`;
+}
+function randomCard() {
+  return `<div class="preset random"><h4>🎲 ${esc(t("rnd.title"))}</h4><p>${esc(t("rnd.desc"))}</p>
+    <div class="row"><button class="small" data-rnd="easy">${t("tier.easy")}</button><button class="small" data-rnd="medium">${t("tier.medium")}</button><button class="small danger" data-rnd="hard">${t("tier.hard")}</button></div></div>`;
 }
 function cfgField(n, p) {
   const m = META.props[n] || { type: /^(true|false)$/.test(p.value) ? "bool" : /^-?\d+(\.\d+)?$/.test(p.value) ? "number" : "text", label: { en: n } };
@@ -509,6 +553,30 @@ function cfgField(n, p) {
     input = `<select data-cfg="${n}"${dis}>${opts.map((o) => `<option value="${esc(o[0])}"${o[0] === v ? " selected" : ""}>${esc(LANG === "cs" ? o[2] : o[1])}</option>`).join("")}</select>`;
   } else input = `<input data-cfg="${n}" value="${esc(v)}" type="${m.type === "number" ? "number" : m.type === "password" ? "password" : "text"}"${m.min != null ? ` min="${m.min}"` : ""}${m.max != null ? ` max="${m.max}"` : ""}${dis}>`;
   return `<div class="cfg-item${n in CHANGES ? " changed" : ""}">${lab}${input}<div class="hint">${esc(help)}</div></div>`;
+}
+async function presetDialog(req) {
+  for (;;) {
+    const plan = await act(() => api("POST", sp("/preset/preview"), req));
+    if (!plan) return;
+    const p = plan.preset;
+    const rows = plan.diff.map((d) => `${esc(d.label)}: ${esc(d.old)} → <b>${esc(d.new)}</b>`).join("<br>") || esc(t("st.preset.nochange"));
+    const body = h(`<div class="skulls">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
+      ${p.twists ? `<ul class="twists">${p.twists.map((x) => `<li><span class="tag ${x.score > 0 ? "no" : x.score < 0 ? "yes" : ""}">${x.score > 0 ? "+" : ""}${x.score}</span> ${esc(L(x.name))}</li>`).join("")}</ul>` : `<p>${esc(L(p.desc))}</p>`}
+      <h4>${esc(t("st.preset.diff"))} (${plan.diff.length})</h4><div class="diff">${rows}</div>
+      ${plan.modlets.length ? `<div class="alert newer_minor small"><b>XML modlet:</b> ${plan.modlet_desc.map(esc).join("; ")}<br>${esc(t("st.preset.modletHint"))}</div>` : ""}
+      ${plan.skipped.length ? `<p class="muted small">${esc(t("st.preset.skipped", { n: plan.skipped.join(", ") }))}</p>` : ""}
+      <p class="muted small">${esc(t("w.applyRestart"))}</p>
+      ${req.tier ? `<button type="button" id="reroll">🎲 ${t("rnd.reroll")}</button>` : ""}`);
+    let reroll = false;
+    const rb = body.querySelector("#reroll");
+    if (rb) rb.onclick = () => { reroll = true; $("#dlg").close(); };
+    const okd = await dialog(`${p.icon} ${L(p.name)}`, body, t("st.preset.apply"));
+    if (reroll) { req = { tier: req.tier }; continue; }
+    if (!okd) return;
+    const send = p.seed ? { tier: p.tier, seed: p.seed } : { id: p.id };
+    if (await act(() => api("POST", sp("/preset"), send), t("st.saved"))) { S.status.preset = p.seed ? `${p.id}#${p.seed}` : p.id; loadSettings(); }
+    return;
+  }
 }
 async function importConfigDialog() {
   const ex = await act(() => api("GET", "/api/exports"));
@@ -534,13 +602,6 @@ async function importConfigDialog() {
   } else r = await act(() => api("POST", sp("/import-config"), src === "file" ? { path: $("#cxPath").value, parts } : { from_server: $("#cxSrv").value, parts }));
   if (r) { toast(t("cx.done", { p: r.imported.join(", ") })); loadSettings(); }
 }
-async function presetDialog(p, have) {
-  const rows = Object.entries(p.values).filter(([k, v]) => have.has(k) && cfgValue(k) !== v)
-    .map(([k, v]) => `${esc(L(META.props[k]?.label) || k)}: ${esc(cfgValue(k))} → <b>${esc(v)}</b>`).join("<br>");
-  if (await dialog(`${p.icon} ${L(p.name)}`, `<p>${esc(L(p.desc))}</p><h4>${esc(t("st.preset.diff"))}</h4><div class="diff">${rows}</div><p class="muted small">${esc(t("w.applyRestart"))}</p>`, t("st.preset.apply")))
-    if (await act(() => api("POST", sp("/preset"), { id: p.id }), t("st.saved"))) loadSettings();
-}
-
 // ------------------------------------------------------------------ mods
 async function loadMods() {
   const el = $("#tab-mods");

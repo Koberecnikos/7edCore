@@ -14,7 +14,7 @@ from aiohttp import web
 from . import selfupdate, versions
 from .instance import DEFAULT_SETTINGS, CompatError, validate_schedule
 from .configmeta import catalog
-from .presets import PRESETS
+from . import modlets, presets, sandbox
 from .steam import check_branch
 from .util import (DATA, load_json, INST_ROOT, PANEL_DIR, VERSIONS_DIR, dir_size, get_prop, read_config_props, rel, safe_extract,
                    safe_path, save_json, write_config_props)
@@ -89,7 +89,7 @@ async def h_overview(request):
 
 
 async def h_presets(request):
-    return web.json_response({"presets": PRESETS})
+    return web.json_response(presets.public())
 
 
 async def h_configmeta(request):
@@ -430,22 +430,120 @@ async def h_config_set(request):
     return ok()
 
 
-async def h_preset_apply(request):
-    i = inst_of(request)
-    pid = str((await request.json()).get("id", ""))
-    pr = next((p for p in PRESETS if p["id"] == pid), None)
+def preset_from_request(d):
+    if d.get("tier"):
+        try:
+            return presets.roll(str(d["tier"]), d.get("seed"))
+        except ValueError as e:
+            raise web.HTTPBadRequest(text=str(e))
+    pr = next((p for p in presets.PRESETS if p["id"] == str(d.get("id", ""))), None)
     if not pr:
         raise web.HTTPNotFound(text="Unknown preset")
+    return pr
+
+
+def plan_preset(i, pr):
+    """What applying a preset changes on this server: serverconfig props, SandboxCode, modlets."""
     if not i.cfg.exists():
         raise web.HTTPConflict(text="No configuration yet - install the game version first")
-    have = {n for n, _, _ in read_config_props(i.cfg)}
-    ch = {k: v for k, v in pr["values"].items() if k in have}
-    write_config_props(i.cfg, ch)
-    i.settings["preset"] = pid
+    props = {n: v for n, v, _ in read_config_props(i.cfg)}
+    sb_mode = "SandboxCode" in props
+    changes, diff, skipped = {}, [], []
+    if sb_mode:
+        cur = sandbox.full(props.get("SandboxCode", ""))
+        new = dict(cur)
+        # undo the previous preset (or everything presets touch for "standard"), keep the rest
+        for k in (presets.managed_keys() if pr["id"] == "standard" else i.settings.get("preset_keys") or []):
+            if k in sandbox.OPTIONS:
+                new[k] = sandbox.OPTIONS[k]["default"]
+        for k, v in pr["values"].items():
+            new[k] = sandbox.index_for(k, v)
+        for k in sorted(set(new), key=lambda n: sandbox.OPTIONS[n]["id"]):
+            if new[k] != cur[k]:
+                diff.append({"key": k, "label": sandbox.OPTIONS[k]["label"],
+                             "old": sandbox.value_label(k, cur[k]), "new": sandbox.value_label(k, new[k])})
+        code = sandbox.encode(new)
+        if code != (props.get("SandboxCode") or "A"):
+            changes["SandboxCode"] = code
+    else:
+        target = {}
+        for k in (presets.managed_keys() if pr["id"] == "standard" else i.settings.get("preset_keys") or []):
+            if k in presets.LEGACY:
+                prop, conv = presets.LEGACY[k]
+                o = sandbox.OPTIONS[k]
+                target[prop] = conv(sandbox.values(k)[o["default"]])
+        if pr["id"] == "standard":
+            target.update({"GameDifficulty": "1", "EnemyDifficulty": "0"})
+        for k, v in pr["values"].items():
+            if k in presets.LEGACY:
+                prop, conv = presets.LEGACY[k]
+                target[prop] = conv(v)
+            else:
+                skipped.append(k)
+        target.update(pr.get("legacy") or {})
+        for k, v in target.items():
+            if k not in props:
+                continue
+            if props[k] != v:
+                changes[k] = v
+                diff.append({"key": k, "label": k, "old": props[k], "new": v})
+    mods = modlets.applicable(pr.get("modlets") or [], sb_mode)
+    return {"preset": {k: pr[k] for k in ("id", "icon", "level", "tier", "name", "desc") if k in pr}
+            | ({"seed": pr["seed"], "twists": pr["twists"], "score": pr["score"]} if "seed" in pr else {}),
+            "sandbox": sb_mode, "changes": changes, "diff": diff, "skipped": skipped, "modlets": mods,
+            "modlet_desc": [modlets.MODLETS[m]["desc"] for m in mods]}
+
+
+async def h_preset_preview(request):
+    i = inst_of(request)
+    return web.json_response(plan_preset(i, preset_from_request(await request.json())))
+
+
+async def h_preset_apply(request):
+    i = inst_of(request)
+    pr = preset_from_request(await request.json())
+    plan = plan_preset(i, pr)
+    if plan["changes"]:
+        shutil.copy2(i.cfg, i.cfg.with_suffix(".xml.bak"))
+        write_config_props(i.cfg, plan["changes"])
+    modlets.write(i.mods.on, plan["modlets"])
+    i.settings["preset"] = pr["id"] + (f"#{pr['seed']}" if "seed" in pr else "")
+    i.settings["preset_keys"] = sorted(pr["values"])
     i.save_settings()
-    i.note(f"Preset applied: {pr['name']['en']} ({len(ch)} settings) - applies after restart")
+    i.note(f"Preset applied: {pr['name']['en']} ({len(plan['diff'])} settings"
+           + (f", modlet: {', '.join(plan['modlets'])}" if plan["modlets"] else "") + ") - applies after restart")
     i.push_state()
-    return ok(applied=ch, skipped=sorted(set(pr["values"]) - have))
+    return ok(**plan)
+
+
+async def h_sandbox_get(request):
+    i = inst_of(request)
+    code = get_prop(i.cfg, "SandboxCode", None) if i.cfg.exists() else None
+    if code is None:
+        return web.json_response({"supported": False})
+    return web.json_response({"supported": True, "code": code, "current": sandbox.full(code), **sandbox.catalog()})
+
+
+async def h_sandbox_set(request):
+    i = inst_of(request)
+    if get_prop(i.cfg, "SandboxCode", None) is None:
+        raise web.HTTPConflict(text="This game version has no Sandbox Options (V3+ only)")
+    d = await request.json()
+    if "code" in d:
+        code = str(d["code"]).strip()
+        if not re.fullmatch(r"A([A-Z]{3})*", code):
+            raise web.HTTPBadRequest(text="Invalid SandboxCode")
+    else:
+        cur = sandbox.full(get_prop(i.cfg, "SandboxCode"))
+        for k, idx in (d.get("values") or {}).items():
+            if k not in sandbox.OPTIONS or not 0 <= int(idx) < len(sandbox.values(k)):
+                raise web.HTTPBadRequest(text=f"Invalid value for {k}")
+            cur[k] = int(idx)
+        code = sandbox.encode(cur)
+    write_config_props(i.cfg, {"SandboxCode": code})
+    i.note(f"Sandbox options saved ({code}) - applies after restart")
+    i.push_state()
+    return ok(code=code)
 
 
 # ------------------------------------------------------------------ config export / import
@@ -959,6 +1057,9 @@ def routes(app):
     r.add_get(p + "/config", h_config_get)
     r.add_post(p + "/config", h_config_set)
     r.add_post(p + "/preset", h_preset_apply)
+    r.add_post(p + "/preset/preview", h_preset_preview)
+    r.add_get(p + "/sandbox", h_sandbox_get)
+    r.add_post(p + "/sandbox", h_sandbox_set)
     r.add_get(p + "/export", h_export)
     r.add_post(p + "/export", h_export)
     r.add_post(p + "/import-config", h_import_config)
