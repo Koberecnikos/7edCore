@@ -154,10 +154,9 @@ The backend is Python and aiohttp, in `app/sevenedcore`. The frontend is plain J
 
 ### Releasing
 
-1. Add a `## 1.1.0 - <date>` section to `CHANGELOG.md`.
-2. Push a tag: `git tag v1.1.0 && git push origin v1.1.0`.
-3. GitHub Actions runs the tests, publishes `ghcr.io/koberecnikos/7edcore:1.1.0` and `:latest`, and creates the GitHub release from the changelog.
-4. Installed servers pick it up automatically.
+1. Add a `## 1.1.0 - <date>` section at the top of `CHANGELOG.md` and push it to `main`.
+2. GitHub Actions runs the tests and publishes `ghcr.io/koberecnikos/7edcore:1.1.0`, `:1.1` and `:latest`. It also creates the tag `v1.1.0` and a GitHub release with the changelog section as notes.
+3. Installed servers pick it up automatically.
 
 Every push to `main` also publishes `:edge`, for testing.
 

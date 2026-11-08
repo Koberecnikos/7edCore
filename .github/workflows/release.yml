@@ -1,9 +1,12 @@
 name: build
 
+# Every push to main: tests, then image :edge.
+# Releasing: add "## X.Y.Z - <date>" at the top of CHANGELOG.md and push to main.
+# If tag vX.Y.Z does not exist yet, this workflow publishes :X.Y.Z, :X.Y and :latest,
+# creates the tag and the GitHub release (notes from CHANGELOG.md).
 on:
   push:
     branches: [main]
-    tags: ["v*.*.*"]
   pull_request:
   workflow_dispatch:
 
@@ -30,8 +33,26 @@ jobs:
       - name: Shell scripts
         run: for f in install.sh deploy/7edcore deploy/7edcore-update deploy/power/7edcore-powerwatch; do bash -n "$f"; done
 
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          V=$(grep -m1 -oP '^## \K[0-9]+\.[0-9]+\.[0-9]+(?= - [0-9]{4}-)' CHANGELOG.md || true)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ -n "$V" ] && [ "$GITHUB_REF" = refs/heads/main ] && [ "$GITHUB_EVENT_NAME" != pull_request ] \
+             && ! git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then
+            echo "release=true" >> "$GITHUB_OUTPUT"; echo "releasing $V"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"; echo "no new release (changelog: ${V:-none})"
+          fi
+
   image:
-    needs: test
+    needs: [test, version]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
@@ -50,35 +71,34 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=edge,enable={{is_default_branch}}
+            type=raw,value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.release == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.release == 'true' }}
+            type=raw,value=latest,enable=${{ needs.version.outputs.release == 'true' }}
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           platforms: linux/amd64
-          build-args: VERSION=${{ github.ref_type == 'tag' && github.ref_name || format('edge-{0}', github.sha) }}
+          build-args: VERSION=${{ needs.version.outputs.release == 'true' && needs.version.outputs.version || format('edge-{0}', github.sha) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   release:
-    needs: image
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, image]
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: GitHub release from CHANGELOG.md
+      - name: Tag and GitHub release from CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          V: ${{ needs.version.outputs.version }}
         run: |
-          V="${TAG#v}"
           {
             echo '**Install** (Linux x86_64 with systemd):'
             echo '```bash'
@@ -88,4 +108,4 @@ jobs:
             echo
             awk -v v="$V" '$0 ~ "^## "v" " {f=1; next} /^## / {f=0} f' CHANGELOG.md
           } > notes.md
-          gh release create "$TAG" --verify-tag --title "7edCore $V" --notes-file notes.md
+          gh release create "v$V" --target "$GITHUB_SHA" --title "7edCore $V" --notes-file notes.md
