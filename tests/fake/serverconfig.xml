@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ServerSettings>
+	<!-- GENERAL SERVER SETTINGS -->
+	<property name="ServerName"				value="My Game Host"/>		<!-- Whatever you want the name of the server to be. -->
+	<property name="ServerDescription"			value="A 7 Days to Die server"/>
+	<property name="ServerPassword"				value=""/>
+	<property name="ServerVisibility"			value="2"/>
+	<property name="ServerPort"				value="26900"/>
+	<property name="ServerMaxPlayerCount"			value="8"/>
+	<property name="ServerAdminSlots"			value="0"/>
+	<property name="WebDashboardEnabled"			value="false"/>
+	<property name="WebDashboardPort"			value="8080"/>
+	<property name="TelnetEnabled"				value="true"/>
+	<property name="TelnetPort"				value="8081"/>
+	<property name="TelnetPassword"				value=""/>
+	<property name="GameWorld"				value="Navezgane"/>
+	<property name="WorldGenSeed"				value="asdf"/>
+	<property name="WorldGenSize"				value="6144"/>
+	<property name="GameName"				value="MyGame"/>
+	<property name="GameMode"				value="GameModeSurvival"/>
+	<property name="GameDifficulty"				value="1"/>
+	<property name="DayNightLength"				value="60"/>
+	<property name="BloodMoonFrequency"			value="7"/>
+	<property name="ZombieMove"				value="0"/>
+	<property name="LootAbundance"				value="100"/>
+	<property name="PartySharedKillRange"			value="100"/>
+	<property name="EACEnabled"				value="true"/>
+</ServerSettings>
