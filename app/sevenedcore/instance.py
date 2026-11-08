@@ -153,6 +153,7 @@ class Instance:
             "id": self.id, "name": self.name, "state": self.state, "busy": self.busy,
             "console_connected": self.tw is not None, "started_at": self.started_at,
             "players": self.players, "gametime": self.gametime, "meminfo": self.meminfo,
+            "web_map": get_prop(self.cfg, "WebDashboardEnabled") == "true",
             "world": {k: get_prop(self.cfg, k) for k in ("GameWorld", "GameName", "WorldGenSeed", "WorldGenSize",
                                                           "ServerName", "ServerPort", "ServerMaxPlayerCount")},
             "ports": self.ports(), "last_backup": self.pstate.get("last_backup"),

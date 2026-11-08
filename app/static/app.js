@@ -9,19 +9,51 @@ const fmtTime = (ts) => ts ? new Date(ts * 1000).toLocaleString(LANG === "cs" ? 
 const fmtDur = (s) => { s = Math.max(0, Math.floor(s)); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + (h ? h + "h " : "") + m + "m"; };
 const h = (html) => { const tpl = document.createElement("template"); tpl.innerHTML = html.trim(); return tpl.content; };
 
-let CUR = null, OV = { instances: [] }, S = { status: {}, stats: {}, settings: {} }, META = null, PRESETS = [];
+let CUR = null, OV = { instances: [] }, S = { status: {}, stats: {}, settings: {} }, META = null, PRESETS = [], PRESET_GROUPS = [];
 let TAB = "overview", ES = null, OFFLINE = false, ME = { role: "viewer" };
 const isAdmin = () => ME.role === "admin";
 const sp = (p) => `/api/s/${encodeURIComponent(CUR)}${p}`;
 
 // ------------------------------------------------------------------ API + connection state
 class ApiError extends Error { constructor(msg, status, data) { super(msg); this.status = status; this.data = data; } }
+// ---- activity feedback: spinner on the clicked button, top progress bar, upload percentage
+let LAST_BTN = null, PENDING = 0;
+document.addEventListener("click", (e) => { const b = e.target.closest("button, a.btn"); if (b) LAST_BTN = { el: b, t: performance.now() }; }, true);
+function activity(delta, label, pct) {
+  PENDING = Math.max(0, PENDING + delta);
+  const bar = $("#activity");
+  bar.hidden = PENDING === 0;
+  bar.classList.toggle("determinate", pct != null);
+  $("#activityFill").style.width = pct != null ? pct + "%" : "";
+  $("#activityText").textContent = label || "";
+}
+function xhrUpload(method, url, body, headers) {
+  return new Promise((res, rej) => {
+    const x = new XMLHttpRequest();
+    x.open(method, url);
+    for (const [k, v] of Object.entries(headers)) x.setRequestHeader(k, v);
+    x.upload.onprogress = (e) => { if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); activity(0, p < 100 ? t("busy.upload", { p, s: fmtBytes(e.total) }) : t("busy.processing"), p < 100 ? p : null); } };
+    x.onload = () => res(new Response(x.responseText, { status: x.status, statusText: x.statusText, headers: { "Content-Type": x.getResponseHeader("Content-Type") || "" } }));
+    x.onerror = () => rej(new TypeError("network"));
+    x.send(body);
+  });
+}
 async function api(method, url, body) {
   const opt = { method, credentials: "same-origin", headers: { "X-Requested-With": "7edcore" } };
   if (body instanceof FormData) opt.body = body;
   else if (body !== undefined) { opt.body = JSON.stringify(body); opt.headers["Content-Type"] = "application/json"; }
+  const btn = LAST_BTN && performance.now() - LAST_BTN.t < 400 && method !== "GET" ? LAST_BTN.el : null;
+  if (btn) { LAST_BTN = null; btn.classList.add("busy"); btn.disabled = true; }
+  const quiet = method === "GET" && /\/(overview|status|session|events)/.test(url);
+  if (!quiet) activity(+1, body instanceof FormData ? t("busy.upload", { p: 0, s: "" }) : "");
   let r;
-  try { r = await fetch(url, opt); } catch { setOffline(true); throw new ApiError(t("err.network"), 0); }
+  try {
+    r = body instanceof FormData ? await xhrUpload(method, url, body, opt.headers) : await fetch(url, opt);
+  } catch { setOffline(true); throw new ApiError(t("err.network"), 0); }
+  finally {
+    if (btn) { btn.classList.remove("busy"); btn.disabled = false; }
+    if (!quiet) activity(-1);
+  }
   setOffline(false);
   if (r.status === 401 && !url.startsWith("/api/login")) { showGate(false); throw new ApiError("401", 401); }
   let data = {};
@@ -138,7 +170,9 @@ async function boot() {
   document.body.dataset.role = ME.role;
   $("#meInfo").textContent = `${ME.name} · ${t("role." + ME.role)}`;
   $("#gate").hidden = true; $("#app").hidden = false;
-  [META, PRESETS] = await Promise.all([api("GET", "/api/configmeta"), api("GET", "/api/presets").then((d) => d.presets)]);
+  let pr;
+  [META, pr] = await Promise.all([api("GET", "/api/configmeta"), api("GET", "/api/presets")]);
+  PRESETS = pr.presets; PRESET_GROUPS = pr.groups || ["themed"];
   await loadOverview();
   const [hid, htab] = decodeURIComponent(location.hash.slice(1)).split("/");
   selectServer(OV.instances.some((i) => i.id === hid) ? hid : OV.instances[0]?.id, htab || "overview");
@@ -301,7 +335,8 @@ function renderOverview() {
     ${card(t("ov.ram"), live() && s.srv_mem ? fmtBytes(s.srv_mem) : "–", (lim ? esc(t("ov.limit", { n: lim })) + " · " : "") + (s.host_mem_total ? `${esc(t("ov.machine"))} ${fmtBytes(s.host_mem)} / ${fmtBytes(s.host_mem_total)}` : ""))}
     ${card(t("ov.fps"), mi.fps ? esc(mi.fps) : "–", mi.fps ? `chunks ${esc(mi.chunks)} · zombies ${esc(mi.zombies)} · entities ${esc(mi.entities)}` : "")}
     ${card(t("ov.temp"), s.cpu_temp != null ? Math.round(s.cpu_temp) + " °C" : "–", s.disk_total ? `${esc(t("ov.disk"))} ${fmtBytes(s.disk_used)} / ${fmtBytes(s.disk_total)}` : "")}
-    ${card(t("ov.ports"), esc(st.ports?.game || "–"), esc(t("ov.portsHint", { g: st.ports?.game, w: st.ports?.web })))}
+    ${card(t("ov.ports"), esc(st.ports?.game || "–"), esc(t("ov.portsHint", { g: st.ports?.game, w: st.ports?.web })) +
+      (st.web_map ? ` · <a href="${esc(webMapUrl(st))}" target="_blank" rel="noopener">${esc(t("map.open"))}</a>` : ""))}
     ${card(t("ov.lastbackup"), st.last_backup ? esc(fmtTime(st.last_backup)) : "–")}
   </div>`;
   $("#tab-overview").append(quickActions());
@@ -309,6 +344,7 @@ function renderOverview() {
 }
 
 let QA_MIN = "5";
+const webMapUrl = (st) => `${location.protocol === "https:" ? "http:" : location.protocol}//${location.hostname}:${st.ports?.web}/`;
 function quickActions() {
   const st = S.status, n = st.notices || {}, run = st.state === "running";
   const box = h(`<div class="card op-only" style="margin-top:14px"><h3>${t("qa.title")}</h3>
@@ -318,6 +354,8 @@ function quickActions() {
       <button data-q="backup">🗄 ${t("qa.backup")}</button>
       <button data-q="say"${run ? "" : " disabled"}>💬 ${t("qa.say")}</button>
       <button data-q="check">🔎 ${t("qa.check")}</button>
+      ${st.web_map ? `<a class="btn" href="${esc(webMapUrl(st))}" target="_blank" rel="noopener"><button type="button"${run ? "" : ` disabled title="${esc(t("map.offline"))}"`}>🗺 ${t("map.open")}</button></a>`
+        : `<button data-q="webmap" class="admin-only" title="${esc(t("map.enableHint"))}">🗺 ${t("map.enable")}</button>`}
     </div>
     <div class="row">
       <label class="small">${t("qa.warnIn")} <select id="qaMin">${[["0", t("qa.now")], ["1", "1 " + t("unit.min")], ["5", "5 " + t("unit.min")], ["10", "10 " + t("unit.min")], ["15", "15 " + t("unit.min")], ["30", "30 " + t("unit.min")]].map(([v, l]) => `<option value="${v}"${v === QA_MIN ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
@@ -331,6 +369,7 @@ function quickActions() {
   $$("[data-q]", box).forEach((b) => b.onclick = async () => {
     const q = b.dataset.q, minutes = Number(QA_MIN);
     if (q === "backup") return act(() => api("POST", sp("/backups/create")), t("ok.queued"));
+    if (q === "webmap") { if (await act(() => api("POST", sp("/config"), { changes: { WebDashboardEnabled: "true", EnableMapRendering: "true" } }), t("map.enabled"))) S.status.web_map = true; renderOverview(); return; }
     if (q === "say") { const m = await promptDlg(t("qa.say"), t("qa.sayPh")); if (m) act(() => api("POST", sp("/quick/say"), { message: m }), t("ok.saved")); return; }
     if (q === "update_game" && n.game_update?.kind === "major" && !await confirmDlg(t("kind.major"))) return;
     b.disabled = true;
@@ -480,10 +519,12 @@ function renderSettings() {
   if (LEVEL === "basic") {
     html += `<h2>${t("st.presets")}</h2><p class="muted small">${esc(t("st.presetsHint"))}</p><div class="preset-layout"><div class="preset-main">`;
     const cur = S.status.preset || "";
-    for (const tier of ["easy", "medium", "hard", "extreme"]) {
-      const list = PRESETS.filter((p) => p.tier === tier);
+    const order = { easy: 0, medium: 1, hard: 2, extreme: 3 };
+    for (const g of PRESET_GROUPS) {
+      const list = PRESETS.filter((p) => p.group === g).sort((a, b) => g === "difficulty" ? 0 : order[a.tier] - order[b.tier] || a.level - b.level);
       if (!list.length) continue;
-      html += `<h4 class="tier tier-${tier}">${esc(t("tier." + tier))}</h4><div class="presets">${list.map((p) => presetCard(p, cur)).join("")}${tier === "medium" ? randomCard() : ""}</div>`;
+      html += `<h3 class="pgroup">${esc(t("grp." + g))}</h3><p class="muted small">${esc(t("grp." + g + ".hint"))}</p>
+        <div class="presets">${list.map((p) => presetCard(p, cur)).join("")}${g === "themed" ? randomCard() : ""}</div>`;
     }
     html += `</div><aside class="stack card" id="stackBox"></aside></div>`;
   } else {
@@ -545,7 +586,7 @@ function renderSettings() {
   $("#rawCfg").onclick = (e) => { e.preventDefault(); openTab("files"); editFile(CFG.path); };
 }
 function presetCard(p, cur) {
-  return `<div class="preset${cur === p.id ? " active" : ""}"><h4>${p.icon} ${esc(L(p.name))}</h4><div class="skulls" title="${esc(t("st.level"))}">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</div>
+  return `<div class="preset${cur === p.id ? " active" : ""}"><h4>${p.icon} ${esc(L(p.name))}</h4><div class="row"><span class="skulls" title="${esc(t("st.level"))}">${"☠".repeat(p.level)}${"·".repeat(5 - p.level)}</span><span class="tag tier-${p.tier}">${esc(t("tier." + p.tier))}</span></div>
     <p>${esc(L(p.desc))}</p><div class="row">${cur === p.id ? `<span class="tag on">${esc(t("st.preset.active"))}</span>` : ""}
     ${p.modlets?.length ? `<span class="tag warnt" title="${esc(t("st.preset.modletHint"))}">XML</span>` : ""}<span class="sp"></span>
     <button class="small" data-add="${p.id}" title="${esc(t("stk.add"))}">＋</button><button class="small primary" data-pr="${p.id}">${t("st.preset.show")}</button></div></div>`;

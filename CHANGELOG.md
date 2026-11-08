@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 - 2026-11-08
+
+- Game difficulty presets exactly as in the PC game (Scavenger … Insane), taken from the game's own Sandbox presets
+- New preset groups: Zombies (Easy / Medium / Hard / Extreme - health, damage, speed, senses, rage, block damage, density), Survival (Easy … Extreme - harder survival with generous XP), Weapons & loot (Gun Nut, Scavenged Arsenal with unrepairable rare guns, Disposable Guns, Ammo Famine), World threat (stronger zombie types outside their biomes, infested cities, elite apocalypse)
+- All 11 official presets of The Fun Pimps (Almost Creative, Chibi Mode, Dumpster Diver, Legacy Survival, Disaster Film, Caveman Life, Dying World, Undead Matinee, Seven days Later, Madmoles Mayhem, Bite Club)
+- Insane Apocalypse, Feral Wasteland and Night Terrors now also make zombies tougher; 7 new random twists
+- Web map: link and one-click "Enable web map" in Overview / Quick actions (uses the server's own web port)
+- Activity feedback everywhere: spinner on the clicked button, progress bar for every request, upload percentage for ZIP uploads
+
 ## 1.4.0 - 2026-11-08
 
 - Panel → 7edCore updates: choose "Latest (automatic)" or pin any release from GitHub (with release notes); switching applies within a minute

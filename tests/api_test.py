@@ -76,6 +76,16 @@ async def main():
         st, ss = await j("GET", P + "/status")
         check(sb["current"]["DayNightLength"] == 3 and [x["id"] for x in ss["preset_stack"]] == ["short_fuse", "weekend"], "stack: reorder changes winner, stack saved")
         st, d = await j("POST", P + "/preset", json={"id": "standard"})
+        st, d = await j("POST", P + "/preset", json={"stack": [{"id": "z_extreme"}, {"id": "diff_insane"}]})
+        st, sb = await j("GET", P + "/sandbox")
+        c = sb["current"]
+        check(sb["code"].startswith("AAAD") and c["EntityIncomingDamage"] == 1 and c["IncomingDamage"] == 11, f"insane + extreme zombies {sb['code']}")
+        st, d = await j("POST", P + "/preset", json={"id": "o_biteclub"})
+        st, sb = await j("GET", P + "/sandbox")
+        want = "AAAGABGACGADGARJAHJBADBDGBIBBMCBNEBPFBZFCFDCXADADEYA"
+        check(sorted(sb["code"][1 + k:4 + k] for k in range(0, len(sb["code"]) - 1, 3)) == sorted(want[1 + k:4 + k] for k in range(0, len(want) - 1, 3)),
+              f"official preset reproduces the game code: {sb['code']}")
+        st, d = await j("POST", P + "/preset", json={"id": "standard"})
         st, d = await j("POST", P + "/sandbox", json={"values": {"XPMultiplier": 6}})
         st, sb = await j("GET", P + "/sandbox")
         check(sb["current"]["XPMultiplier"] == 6 and "AS" in sb["code"], f"sandbox option set {sb['code']}")
