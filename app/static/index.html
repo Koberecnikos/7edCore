@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7edCore</title>
+<link rel="icon" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/icon.png">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="conn" hidden><span data-i="conn.lost"></span></div>
+
+<div id="gate" hidden>
+  <form id="gateForm">
+    <img src="/static/banner.jpg" alt="7edCore" class="banner">
+    <h2 id="gateTitle"></h2>
+    <p id="gateText" class="muted"></p>
+    <input type="password" id="gatePw" autocomplete="current-password">
+    <input type="password" id="gatePw2" autocomplete="new-password" hidden>
+    <button class="primary" type="submit" id="gateBtn"></button>
+    <div id="gateErr" class="err"></div>
+    <select class="lang-pick" aria-label="Language"></select>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <div id="top">
+    <a class="brand" href="#" title="7edCore"><img src="/static/favicon.png" alt=""><b class="r">7</b>ed<b class="r">Core</b></a>
+    <div id="srvTabs"></div>
+    <button id="btnNew" class="srv-add" data-ititle="top.new">＋</button>
+    <span class="sp"></span>
+    <span id="steamInfo" class="muted small"></span>
+    <button id="btnVersions" class="ghost" data-i="top.versions"></button>
+    <button id="btnPanel" class="ghost" data-i="top.panel"></button>
+    <select class="lang-pick" aria-label="Language"></select>
+    <button id="btnLogout" class="ghost" data-ititle="top.logout">⎋</button>
+  </div>
+  <div id="notices"></div>
+  <div id="srvView">
+    <header>
+      <h2 id="srvTitle">–</h2>
+      <span id="stateBadge" class="badge">–</span>
+      <span id="verChip" class="chip"></span>
+      <span id="busyText" class="busy"></span>
+      <div class="hdr-actions">
+        <button id="btnStart" class="primary" data-i="act.start"></button>
+        <button id="btnStop" data-i="act.stop"></button>
+        <button id="btnRestart" data-i="act.restart"></button>
+        <button id="btnKill" class="danger" data-i="act.kill" data-ititle="kill.hint"></button>
+      </div>
+    </header>
+    <nav id="tabs">
+      <button data-tab="overview" data-i="tab.overview"></button>
+      <button data-tab="console" data-i="tab.console"></button>
+      <button data-tab="players" data-i="tab.players"></button>
+      <button data-tab="world" data-i="tab.world"></button>
+      <button data-tab="settings" data-i="tab.settings"></button>
+      <button data-tab="mods" data-i="tab.mods"></button>
+      <button data-tab="backups" data-i="tab.backups"></button>
+      <button data-tab="files" data-i="tab.files"></button>
+      <button data-tab="automation" data-i="tab.automation"></button>
+    </nav>
+    <main>
+      <section class="tab" id="tab-overview"></section>
+      <section class="tab" id="tab-console">
+        <div id="console"></div>
+        <form class="cmdline" id="cmdForm">
+          <input id="cmdInput" data-iph="con.placeholder" autocomplete="off">
+          <button class="primary" data-i="con.send"></button>
+          <label class="small"><input type="checkbox" id="autoScroll" checked> <span data-i="con.autoscroll"></span></label>
+        </form>
+      </section>
+      <section class="tab" id="tab-players"></section>
+      <section class="tab" id="tab-world"></section>
+      <section class="tab" id="tab-settings"></section>
+      <section class="tab" id="tab-mods"></section>
+      <section class="tab" id="tab-backups"></section>
+      <section class="tab" id="tab-files"></section>
+      <section class="tab" id="tab-automation"></section>
+    </main>
+  </div>
+  <main id="pageView" hidden></main>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <h3 id="dlgTitle"></h3>
+    <div id="dlgBody"></div>
+    <div class="row dlg-actions"><span class="sp"></span><button value="cancel" id="dlgCancel" type="button"></button><button value="ok" id="dlgOk" class="primary"></button></div>
+  </form>
+</dialog>
+<div id="toasts"></div>
+<input type="file" id="filePick" hidden>
+<script src="/static/i18n.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

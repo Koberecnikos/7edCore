@@ -90,6 +90,7 @@ class Instance:
         self.ram_over = 0
         self.ram_action_at = 0
         self.notices = {}
+        self.pending, self.pending_what = None, ""
 
     # ---------------------------------------------------------- basics
     @property
@@ -156,7 +157,8 @@ class Instance:
             "game": {"branch": self.branch, "installed": st.installed(self.branch), "version": self.game_version_label(),
                      "build": st.installed_build(self.branch), "busy": st.busy, "progress": st.progress},
             "compat": self.compat_check(), "notices": self.notices,
-            "ram_limit_gb": self.settings.get("ram_limit_gb"),
+            "ram_limit_gb": self.settings.get("ram_limit_gb"), "pending": self.pending_what,
+            "preset": self.settings.get("preset"),
         }
 
     # ---------------------------------------------------------- config
@@ -464,6 +466,41 @@ class Instance:
         elif reason == "schedule":
             await self.hub.apply_pending(self)          # update window "at scheduled restart"
         await self.start(force=False, reason=reason)
+
+    async def countdown(self, minutes, what, action):
+        """Warn players in chat (N, 5, 1 min, 10 s) and then run action(). Cancellable."""
+        if self.pending and not self.pending.done():
+            raise web.HTTPConflict(text=f"Already pending: {self.pending_what}")
+
+        async def run():
+            try:
+                left = float(minutes)
+                marks = sorted({m for m in (left, 10, 5, 1) if 0 < m <= left}, reverse=True)
+                for m in marks:
+                    await asyncio.sleep(max(0, (left - m) * 60))
+                    left = m
+                    await self.say(f"Server will {what} in {m:g} min.")
+                    self.note(f"Warned players: {what} in {m:g} min")
+                await asyncio.sleep(max(0, left * 60 - 10))
+                await self.say(f"Server will {what} in 10 seconds, saving...", "FF4444")
+                await asyncio.sleep(10)
+                self.pending_what = ""
+                await action()
+            except asyncio.CancelledError:
+                await self.say(f"Planned {what} was cancelled.", "44FF44")
+                self.note(f"Cancelled: {what}")
+            finally:
+                self.pending_what = ""
+                self.push_state()
+        self.pending_what = f"{what} in {minutes:g} min"
+        self.pending = asyncio.create_task(run())
+        self.push_state()
+
+    def cancel_pending(self):
+        if self.pending and not self.pending.done():
+            self.pending.cancel()
+            return True
+        return False
 
     def update_window_ok(self):
         """May automatic updates touch this server right now?"""

@@ -273,6 +273,35 @@ class Hub:
         if was:
             await inst.start(reason="after mod updates")
 
+    async def update_mods_now(self, inst):
+        """User asked: update every mod that has a newer release for this game version."""
+        await self.check_mods(inst)
+        todo = [m for m in self.notices_mods(inst) if not m["manual"] and m["compat"] != "no"]
+        if not todo:
+            inst.note("Mods: nothing to update")
+            return []
+        was = inst.running()
+        if was:
+            await inst.stop(user=False, reason="mod updates")
+        if (inst.userdata / "Saves").exists():
+            await inst.create_backup("pre-update")
+        done = []
+        for m in todo:
+            try:
+                rep = await inst.mods.update(m["folder"], self.glob.get("github_token"))
+                inst.note(f"Mod updated: {m['name']} -> {m['latest']}")
+                done.append({"folder": m["folder"], "latest": m["latest"], "report": rep})
+            except web.HTTPException as e:
+                inst.note(f"Mod update failed: {m['name']}: {e.text}")
+        await self.check_mods(inst)
+        if was:
+            await inst.start(reason="after mod updates")
+        return done
+
+    @staticmethod
+    def notices_mods(inst):
+        return inst.notices.get("mods") or []
+
     # ---------------------------------------------------------- loops
     async def stats_loop(self):
         psutil.cpu_percent(None)
@@ -294,6 +323,11 @@ class Hub:
                 host["disk_used"], host["disk_total"] = du.used, du.total
             except OSError:
                 pass
+            if tick % 12 == 1:          # tell the host updater whether a panel restart would hurt anyone
+                from . import selfupdate
+                busy = self.steam.busy or any(i.players or i.busy or i.state in ("starting", "stopping")
+                                              for i in self.instances.values())
+                selfupdate.set_safe(not busy)
             for inst in list(self.instances.values()):
                 try:
                     await inst.collect_stats(host, tick)

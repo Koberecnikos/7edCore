@@ -11,7 +11,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from . import versions
+from . import selfupdate, versions
 from .instance import DEFAULT_SETTINGS, CompatError, validate_schedule
 from .configmeta import catalog
 from .presets import PRESETS
@@ -98,7 +98,7 @@ async def h_configmeta(request):
 
 async def h_global_get(request):
     g = HUB.glob
-    return web.json_response({"github_token_set": bool(g.get("github_token")), "nexus_key_set": bool(g.get("nexus_key")),
+    return web.json_response({"self_update": selfupdate.status(),"github_token_set": bool(g.get("github_token")), "nexus_key_set": bool(g.get("nexus_key")),
                               "password_env": bool(os.environ.get("PANEL_PASSWORD"))})
 
 
@@ -108,6 +108,22 @@ async def h_global_set(request):
         if k in d:
             HUB.glob[k] = str(d[k]).strip()
     save_json(PANEL_DIR / "global.json", HUB.glob, mode=0o600)
+    return ok()
+
+
+async def h_selfupdate(request):
+    d = await request.json()
+    if d.get("policy") not in selfupdate.POLICIES:
+        raise web.HTTPBadRequest(text="policy: auto, notify or off")
+    selfupdate.set_policy(d["policy"])
+    return ok()
+
+
+async def h_selfupdate_now(request):
+    if not selfupdate.status()["updater"]:
+        raise web.HTTPConflict(text="The 7edCore updater is not installed on this host")
+    selfupdate.request()
+    HUB.broadcast("7edCore update requested - the panel will restart shortly")
     return ok()
 
 
@@ -208,6 +224,70 @@ async def h_action(request):
         await i.kill()
     else:
         raise web.HTTPNotFound()
+    return ok()
+
+
+async def h_quick(request):
+    """Per-server shortcuts."""
+    i = inst_of(request)
+    act = request.match_info["act"]
+    d = await request.json() if request.can_read_body else {}
+    mins = float(d.get("minutes", 5) or 0)
+    if act == "saveworld":
+        if not i.tw:
+            raise web.HTTPConflict(text="Server is not running")
+        out = await i.command("saveworld", timeout=30)
+        i.note("World saved")
+        return ok(output=out)
+    if act == "say":
+        msg = str(d.get("message", "")).strip()[:200]
+        if not msg or not i.tw:
+            raise web.HTTPBadRequest(text="Server must run and message must not be empty")
+        await i.say(msg, "FFFFFF")
+        i.note(f"Broadcast: {msg}")
+        return ok()
+    if act == "restart" and i.running():
+        await i.countdown(mins, "restart", lambda: i.restart(reason="manual"))
+    elif act == "stop" and i.running():
+        await i.countdown(mins, "shut down", lambda: i.stop(user=True, reason="manual"))
+    elif act == "update_game":
+        info = HUB.steam.update_info(i.branch)
+        if not info.get("available"):
+            raise web.HTTPConflict(text="The game is up to date")
+        if i.running() and mins > 0:
+            await i.countdown(mins, "update", lambda: HUB.update_game(i.branch, reason="manual"))
+        else:
+            bg(HUB.update_game(i.branch, reason="manual"), "Game update", i)
+    elif act == "update_mods":
+        if i.running() and mins > 0:
+            await i.countdown(mins, "update mods", lambda: HUB.update_mods_now(i))
+        else:
+            bg(HUB.update_mods_now(i), "Mod update", i)
+    elif act == "update_all":
+        async def all_():
+            was = i.running()
+            if was:
+                await i.stop(user=False, reason="update")
+            if HUB.steam.update_info(i.branch).get("available"):
+                await HUB.update_game(i.branch, reason="manual")
+            await HUB.update_mods_now(i)
+            if was:
+                await i.start(reason="after update")
+        if i.running() and mins > 0:
+            await i.countdown(mins, "update", all_)
+        else:
+            bg(all_(), "Update", i)
+    elif act == "cancel":
+        if not i.cancel_pending():
+            raise web.HTTPConflict(text="Nothing is pending")
+    elif act == "check":
+        await HUB.check_updates(force_branches=True)
+        if any(m.get("source") for m in i.mods.list()):
+            await HUB.check_mods(i)
+        i.push_state()
+        return ok(notices=i.notices)
+    else:
+        raise web.HTTPBadRequest(text="Unknown or not possible now")
     return ok()
 
 
@@ -366,6 +446,143 @@ async def h_preset_apply(request):
     i.note(f"Preset applied: {pr['name']['en']} ({len(ch)} settings) - applies after restart")
     i.push_state()
     return ok(applied=ch, skipped=sorted(set(pr["values"]) - have))
+
+
+# ------------------------------------------------------------------ config export / import
+EXPORTS = DATA / "exports"
+KEEP_ON_IMPORT = ("ServerName", "GameName", "ServerPort", "TelnetPort", "WebDashboardPort", "UserDataFolder", "TelnetEnabled")
+PANEL_KEYS_SKIP = ("game_version",)
+
+
+def build_export(i) -> bytes:
+    import io
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("7edcore-export.json", json.dumps({"format": 1, "server": i.name, "game": i.game_version_label(),
+                                                      "branch": i.branch, "exported": int(__import__("time").time())}, indent=2))
+        if i.cfg.exists():
+            z.write(i.cfg, "serverconfig.xml")
+        z.writestr("panel-settings.json", json.dumps(i.settings, indent=2, ensure_ascii=False))
+        adm = i.userdata / "Saves" / (get_prop(i.cfg, "AdminFileName") or "serveradmin.xml")
+        if adm.exists():
+            z.write(adm, "serveradmin.xml")
+        if (i.dir / "mods.json").exists():
+            z.write(i.dir / "mods.json", "mods.json")
+    return buf.getvalue()
+
+
+async def h_export(request):
+    i = inst_of(request)
+    data = await asyncio.to_thread(build_export, i)
+    from .util import slugify, stamp
+    name = f"7edcore_{slugify(i.name)}_{stamp()}.zip"
+    if request.method == "POST":                       # keep a copy on the server
+        EXPORTS.mkdir(parents=True, exist_ok=True)
+        (EXPORTS / name).write_bytes(data)
+        i.note(f"Configuration exported to /exports/{name}")
+        return ok(path=f"/exports/{name}")
+    return web.Response(body=data, content_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+async def h_exports(request):
+    EXPORTS.mkdir(parents=True, exist_ok=True)
+    files = [{"path": f"/exports/{f.name}", "name": f.name, "size": f.stat().st_size, "mtime": f.stat().st_mtime}
+             for f in sorted(EXPORTS.glob("*.zip"), key=lambda f: f.stat().st_mtime, reverse=True)]
+    return web.json_response({"exports": files, "servers": [{"id": x.id, "name": x.name} for x in HUB.instances.values()]})
+
+
+def apply_import(i, src: dict, parts):
+    """src: {"serverconfig.xml": bytes, "panel-settings.json": bytes, "serveradmin.xml": bytes}"""
+    done = []
+    if "game" in parts and src.get("serverconfig.xml"):
+        if not i.cfg.exists():
+            raise web.HTTPConflict(text="Install the game version first")
+        tmp = i.cfg.with_suffix(".import.xml")
+        tmp.write_bytes(src["serverconfig.xml"])
+        try:
+            ET.parse(tmp)
+        except ET.ParseError as e:
+            tmp.unlink()
+            raise web.HTTPBadRequest(text=f"serverconfig.xml is not valid XML: {e}")
+        new = {n: v for n, v, _ in read_config_props(tmp)}
+        tmp.unlink()
+        for k in KEEP_ON_IMPORT:
+            new.pop(k, None)
+        shutil.copy2(i.cfg, i.cfg.with_suffix(".xml.bak"))
+        write_config_props(i.cfg, new)
+        done.append(f"game settings ({len(new)})")
+    if "panel" in parts and src.get("panel-settings.json"):
+        d = json.loads(src["panel-settings.json"])
+        for k, v in d.items():
+            if k in DEFAULT_SETTINGS and k not in PANEL_KEYS_SKIP:
+                i.settings[k] = validate_schedule(v) if k == "schedule" else v
+        i.save_settings()
+        done.append("panel settings")
+    if "admins" in parts and src.get("serveradmin.xml"):
+        try:
+            ET.fromstring(src["serveradmin.xml"])
+        except ET.ParseError as e:
+            raise web.HTTPBadRequest(text=f"serveradmin.xml is not valid XML: {e}")
+        dest = i.userdata / "Saves" / (get_prop(i.cfg, "AdminFileName") or "serveradmin.xml")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            shutil.copy2(dest, dest.with_name(dest.name + ".bak"))
+        dest.write_bytes(src["serveradmin.xml"])
+        done.append("admins")
+    if not done:
+        raise web.HTTPBadRequest(text="Nothing to import - the file has none of the selected parts")
+    i.note("Configuration imported: " + ", ".join(done) + " - applies after restart")
+    i.push_state()
+    return done
+
+
+def read_bundle(path: Path):
+    if zipfile.is_zipfile(path):
+        out = {}
+        with zipfile.ZipFile(path) as z:
+            for n in z.namelist():
+                base = Path(n).name
+                if base in ("serverconfig.xml", "panel-settings.json", "serveradmin.xml") and z.getinfo(n).file_size < 5 << 20:
+                    out[base] = z.read(n)
+        return out
+    raw = path.read_bytes()[:5 << 20]
+    if b"<ServerSettings" in raw:
+        return {"serverconfig.xml": raw}
+    if b"<adminTools" in raw:
+        return {"serveradmin.xml": raw}
+    raise web.HTTPBadRequest(text="Expected a 7edCore export ZIP, serverconfig.xml or serveradmin.xml")
+
+
+async def h_import_config(request):
+    i = inst_of(request)
+    if request.content_type.startswith("multipart/"):
+        tmp = Path(tempfile.mkdtemp(dir=i.dir, prefix=".up_"))
+        try:
+            files, fields = await read_upload(request, tmp, exts=(".zip", ".xml"))
+            if not files:
+                raise web.HTTPBadRequest(text="Choose a file")
+            src = read_bundle(files[0])
+            parts = fields.get("parts", "game,panel,admins").split(",")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    else:
+        d = await request.json()
+        parts = d.get("parts") or ["game", "panel", "admins"]
+        if d.get("from_server"):
+            o = HUB.get(d["from_server"])
+            src = {}
+            if o.cfg.exists():
+                src["serverconfig.xml"] = o.cfg.read_bytes()
+            src["panel-settings.json"] = json.dumps(o.settings).encode()
+            adm = o.userdata / "Saves" / (get_prop(o.cfg, "AdminFileName") or "serveradmin.xml")
+            if adm.exists():
+                src["serveradmin.xml"] = adm.read_bytes()
+        elif d.get("path"):
+            src = read_bundle(safe_path(d["path"]))
+        else:
+            raise web.HTTPBadRequest(text="Choose a source")
+    return ok(imported=apply_import(i, src, parts))
 
 
 # ------------------------------------------------------------------ worlds
@@ -634,6 +851,8 @@ def routes(app):
     r.add_get("/api/configmeta", h_configmeta)
     r.add_get("/api/global", h_global_get)
     r.add_post("/api/global", h_global_set)
+    r.add_post("/api/selfupdate", h_selfupdate)
+    r.add_post("/api/selfupdate/now", h_selfupdate_now)
     r.add_get("/api/versions", h_versions)
     r.add_post("/api/versions/{branch}/{act}", h_version_action)
     r.add_post("/api/updates/check", h_updates_check)
@@ -651,6 +870,7 @@ def routes(app):
     r.add_get(p + "/events", h_events)
     r.add_post(p + "/server/{act}", h_action)
     r.add_post(p + "/version", h_set_version)
+    r.add_post(p + "/quick/{act}", h_quick)
     r.add_get(p + "/compat", h_compat)
     r.add_post(p + "/command", h_command)
     r.add_get(p + "/players", h_players)
@@ -659,6 +879,10 @@ def routes(app):
     r.add_get(p + "/config", h_config_get)
     r.add_post(p + "/config", h_config_set)
     r.add_post(p + "/preset", h_preset_apply)
+    r.add_get(p + "/export", h_export)
+    r.add_post(p + "/export", h_export)
+    r.add_post(p + "/import-config", h_import_config)
+    r.add_get("/api/exports", h_exports)
     r.add_get(p + "/worlds", h_worlds)
     r.add_post(p + "/worlds/select", h_world_select)
     r.add_post(p + "/worlds/delete", h_world_delete)
