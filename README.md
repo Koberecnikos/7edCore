@@ -12,36 +12,81 @@ Several servers on one machine, each with its own game version, mods, backups an
 
 ## Features
 
-- **Several servers.** Each server gets its own tab and its own ports, saves, mods, backups and schedule. Use the **+** tab to add one.
-- **Game version per server.** Pick any Steam branch: `public`, `v3.4.0`, `v2.6`, `alpha21.2`, experimental, and so on. Installs are shared between servers.
-- **Save compatibility checks.** 7edCore tracks the game version each save was made with. It warns you before you load a save on a newer version, and it blocks a major-version mismatch or a downgrade unless you confirm it.
-- **Updates for the game and mods.**
-  - Policies: off, notify, hotfixes only, or hotfixes plus minor updates. Major updates are never installed automatically.
-  - Updates are installed only when nobody is online, only while the server is stopped, or at the next scheduled restart.
+### Servers
+- **Several servers on one machine.** Each server has its own tab, ports, saves, mods, backups, schedule and settings. Add one with **＋**. A new server can copy the settings of an existing one.
+- **Game version per server.** Run any Steam branch: `public`, `v3.4.0`, `v2.6`, `alpha21.2`, experimental and so on. Installs are shared between servers and managed on the **Game versions** page (install, update, verify, remove).
+- **Save compatibility checks.** 7edCore records the game version each save was made with. It warns before you load a save on a newer version, and it blocks a major-version jump or a downgrade unless you confirm.
+- **Overview.** Players, in-game time, world, CPU and RAM of the server and the machine, server FPS, chunks, zombies, CPU temperature, disk, ports, last backup and the web map link.
+- **Quick actions.**
+  - Save the world, back up now, or message players.
+  - Restart or stop with an in-game countdown (cancellable).
+  - Update the game, the mods, or both.
+  - Check for updates and enable the web map.
+  - **Start automatically when the machine starts.**
+- **Live console** with commands. **Player list** with kick, ban and promote to admin.
+- **Web map.** Turn on the game's web dashboard with one click and open the map from the panel. Every server has its own map port.
+
+### Game settings
+- **Three levels.** Basic covers world, difficulty, players and party XP range. Detailed has every gameplay option by category. Advanced covers networking, permissions and admin interfaces.
+- **V3 Sandbox Options.** All 165 options are editable directly, with labels and descriptions, so no external code generator is needed. You can paste or copy the `SandboxCode`. Older game versions use the classic `serverconfig.xml` settings.
+- **Raw editor** for `serverconfig.xml`, with XML validation and an automatic `.bak`.
+
+### Difficulty presets
+More than 50 presets. Each one opens a preview that lists every change before anything is applied.
+
+| Group | Presets |
+|---|---|
+| **Game difficulty** (exact values from the PC game) | Scavenger, Adventurer, Nomad, Warrior, True Survivalist, Insane, Standard (reset) |
+| **Zombies** (only zombies: health, damage, speed, senses, rage, block damage, density) | Easy, Medium, Hard, Extreme |
+| **Survival** (food, water, infection, gear wear, traders, death; XP stays generous so it never becomes a grind) | Easy, Medium, Hard, Extreme |
+| **Weapons & loot** | Gun Nut, Scavenged Arsenal (rare high-quality guns from day one that cannot be repaired), Disposable Guns, Ammo Famine |
+| **World threat** (game stage and spawns) | Quiet Countryside, Infested Cities, Wasteland Everywhere (tougher zombie types outside their biomes), Elite Apocalypse |
+| **Challenges** | Weekend Survivor, Loot Goblin, Bookworm, Builder's Paradise, Party Mode, Night Terrors, Horde Week, Siege Builders, Short Fuse, Black Market, Lost Knowledge, Feral Wasteland, Lootbag Only, Stone Age, Hardcore Survivor, Insane Apocalypse |
+| **Official presets of The Fun Pimps** (exact codes) | Almost Creative, Chibi Mode, Dumpster Diver, Legacy Survival, Disaster Film, Caveman Life, Dying World, Undead Matinee, Seven days Later, Madmoles Mayhem, Bite Club |
+
+- **Combine presets.** Add presets with **＋** and drag them into order in the side panel. The one on top wins wherever two presets set the same option. A typical stack is *Insane + Zombies: Extreme + Survival: Hard + Scavenged Arsenal*. The preview shows which preset each change comes from and what was overridden.
+- **Random challenge.** Pick Easy, Medium or Hard and get 3–5 balanced twists from a pool of 40. They can make the game harder, easier or just strange: sprinters, tough dead, black market, no repairs, moon gravity, headshots only and more. Reroll until you like it. Every roll has a seed, so it can be repeated.
+- **Challenge modlets.** Some challenges need more than settings. *Lootbag Only*, for example, empties world containers, so 7edCore generates a small server-side XML modlet for them. Players do not install anything.
+
+### Mods
+- Install from a ZIP (drag and drop, with upload progress), a GitHub repository or a URL.
+- **Find compatible version** picks the newest release made for your server's game version.
+- Updates keep your edited config files. If the author changed the same file, their version is saved next to yours as `*.new`.
+- Enable, disable or delete mods. Automatic or notify-only mod updates are set per server.
+
+### Worlds and configs
+- Choose a map, generate an RWG world (seed and size), or switch between saves. For each save you see the game version it was made with and last played with.
+- **Import a world** from a ZIP, for example a single-player save from `%APPDATA%\7DaysToDie`.
+- **Export and import a server config** (game settings, panel settings, admins), from your PC, from a file stored on the server, or from another server. Ports and data folders of the target server are kept.
+
+### Automation
+- **Scheduler.** Start, stop, restart, update-and-restart and backup rules per weekday, with in-game chat warnings before the action.
+- **Updates.**
+  - Game updates: off, notify, hotfixes, or hotfixes plus minor updates. Major updates are never automatic.
+  - Mod updates: off, notify or auto.
+  - When to install: only when nobody is online, only while stopped, or at the next scheduled restart.
   - A backup is taken before every update.
-- **Mods.**
-  - Install from a ZIP, a GitHub repository or a URL.
-  - *Find compatible version* picks the newest release made for your game version.
-  - Updates keep the files you edited. If the author also changed one of those files, their version is saved next to yours as `*.new`.
-- **Game settings in three levels.** Basic covers the world, difficulty, max players and party XP range. Detailed has every gameplay option, grouped by category. Advanced covers networking and permissions. On V3 and newer, all 165 Sandbox Options are editable directly, with no code generator needed, and the SandboxCode can be copied or pasted.
-- **Difficulty presets and challenges.** 50 presets in groups. Game difficulty has the exact Scavenger to Insane levels of the PC game. Zombies, Survival, Weapons & loot and World threat each come in easy to extreme. Challenges are listed below, and all 11 official presets from The Fun Pimps are included. The challenges are Weekend Survivor, Loot Goblin, Bookworm, Builder's Paradise, Party Mode, Night Terrors, Horde Week, Siege Builders, Short Fuse, Black Market, Lost Knowledge, Feral Wasteland, Lootbag Only, Stone Age, Hardcore Survivor and Insane Apocalypse. Each one shows a preview of every change before you apply it. Some challenges add a small server-side XML modlet, which players do not need to install.
-- **Combine presets.** Pick several presets, including random rolls, and drag them into order in the side panel. The one on top has priority and overrides the same settings of the presets below it. The preview shows where each change comes from and which settings were overridden.
-- **Random challenge.** Pick Easy, Medium or Hard and get 3–5 balanced twists. They can be harder, easier or just strange: sprinters, a black market, rare magazines, moon gravity, headshots only and more. Reroll until you like the result. Every roll has a seed, so you can recreate it.
-- **World management.**
-  - Choose a map, generate an RWG world, or switch between saves.
-  - Import a single-player world from a ZIP.
-  - Export or import a server's config: from your PC, from a file stored on the server, or from another server.
-- **Console and players.** Live console with commands. Kick, ban or promote players.
-- **Quick actions** for each server: save the world, back up now, restart or stop with an in-game countdown, update the game, mods or everything, and message players.
-- **Scheduler.** Start, stop, restart, update and backup rules per weekday. Players get warnings in the in-game chat before a stop or restart.
-- **Backups.** Automatic and manual backups, compressed with zstd on a reserved CPU core. A backup is also taken before every restore, update and import.
-- **Resources.** RAM limit (warn or restart gracefully), CPU core pinning, crash auto-restart, and a file manager with an editor.
-- **Users and roles.** Every user has their own account. Admins can do everything. Operators run the servers they are given: start and stop, console, quick actions and backups. Viewers can only watch. Logins are remembered for a year.
-- **Interface.** English and Czech.
-- **Self-updating.** When a new 7edCore release is published, your server updates itself, but only when nobody is playing.
-- **Safe shutdowns and power loss.** Game servers are saved and stopped on shutdown and resumed afterwards. A `7edcore` command line plugs into UPS software, and laptops and mini PCs get battery handling out of the box.
+- **Backups.** Automatic, on an interval with retention, and manual. They are zstd-compressed on a reserved CPU core. Restore is one click and backs up the current state first.
+- **Resources.** RAM limit (warn, or warn players and restart gracefully), CPU core pinning for the server and for backups, crash auto-restart, and the shutdown timeout.
+
+### Panel
+- **User accounts with roles.**
+  - **Admin** can do everything.
+  - **Operator** runs the servers assigned to them: start and stop, console, quick actions and backups.
+  - **Viewer** can only watch.
+  - Logins are remembered for a year. A lost password is reset with one command on the host.
+- **File manager** for the whole data folder: browse, edit, upload, download, extract ZIPs, rename and delete. Protected folders are guarded.
+- **English and Czech** interface, switchable in the corner. More languages can be added in one file.
+- **Clear feedback.** Clicked buttons show a spinner, a progress bar shows running requests, and uploads show a percentage. If the connection drops, a banner appears instead of error pop-ups.
+
+### Hosting
+- **One-line install** with Docker on any x86_64 Linux with systemd.
+- **Self-updating.** New releases are installed automatically when nobody is playing. You can also pin any release from GitHub, or choose notify only or off.
+- **Safe shutdowns.** Game servers are saved and stopped before the machine shuts down and come back afterwards.
+- **Power loss and UPS.** The `7edcore` command (`save`, `stop-all`, `resume`, …) hooks into NUT or apcupsd. Laptops and mini PCs get battery handling automatically.
 
 <p align="center"><img src="docs/screenshot-overview.jpg" width="49%"> <img src="docs/screenshot-settings.jpg" width="49%"></p>
+<p align="center"><img src="docs/screenshot-users.jpg" width="60%"></p>
 
 ## Install
 
@@ -157,6 +202,16 @@ tests/run_server.sh /tmp/7edcore-data 18200        # panel with a fake SteamCMD 
 python3 tests/api_test.py http://127.0.0.1:18200 testpass123
 python3 tests/ui_test.py  http://127.0.0.1:18200 testpass123 /tmp/shots
 ```
+
+Repository layout:
+
+| Path | What |
+|---|---|
+| `app/` | The panel: Python and aiohttp backend (`sevenedcore/`), web UI (`static/`), the `7edcore` command (`ctl.py`) |
+| `deploy/` | Docker Compose file, host updater, `7edcore` host command, battery watcher, UPS examples |
+| `tests/` | Fake SteamCMD and fake game server plus API and UI tests. GitHub Actions runs them before every image and release is built. |
+| `tools/` | `sandbox_extract.py`, which regenerates the Sandbox Option tables from a new game version |
+| `install.sh` | The one-line installer |
 
 The backend is Python and aiohttp, in `app/sevenedcore`. The frontend is plain JS with no build step, in `app/static`. Translations live in `app/static/i18n.js`. To add a language, copy the `en` block.
 
