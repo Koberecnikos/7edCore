@@ -104,6 +104,16 @@ async def shots(iid):
         await shot("mod-config", clip_sel="#dlg")
         await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500)
         await tab("overview")
+        # the sandbox running the fake server has no CPU sensor and the fake process is idle:
+        # fill the tiles with typical values of a real server so every tile shows something
+        await pg.evaluate("""() => {
+          const g = 1024 ** 3;
+          S.stats = { ...S.stats, srv_cpu: 23.6, srv_mem: 3.4 * g, cpu_temp: 54, host_cpu: 27.1, host_mem: 6.3 * g, host_mem_total: 15.5 * g,
+                      load: [1.42, 1.18, 0.97], disk_used: 73.8 * g, disk_total: 218 * g };
+          S.status.meminfo = { fps: "29.84", chunks: "1462", zombies: "38", entities: "117", items: "6" };
+          S.status.started_at = Date.now() / 1000 - 3 * 3600 - 1260;
+          renderOverview();
+        }""")
         await shot("overview")
         await pg.click("[data-q=webmap]"); await pg.wait_for_timeout(900)
         await shot("webmap", clip_sel="#dlg")
