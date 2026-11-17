@@ -226,6 +226,8 @@ async def main():
         d = await wait(lambda d: d["state"] == "running" and d["console_connected"], P + "/status")
         st, d = await j("GET", P + "/webmap")
         check(d.get("reachable") is True, f"web map reachable {d}")
+        st, d = await j("POST", P + "/quick/fps")
+        check(st == 200 and d["meminfo"].get("fps") == "30.00", f"FPS on request {d}")
         d = await wait(lambda d: d["daylen"]["frozen"], P + "/status", 40)
         check(d["daylen"]["frozen"], f"time frozen with 0 players {d['daylen']}")
         st, cfgd = await j("GET", P + "/config")
@@ -303,6 +305,8 @@ async def main():
         iid3 = d["id"]
         d = await wait(lambda d: not d["busy"], f"/api/s/{iid3}/status")
         check(d["world"]["ServerPort"] == "36930", f"clone port {d['world']['ServerPort']}")
+        sts = [(await j("GET", f"/api/s/{x}/status"))[1]["ports"] for x in (iid, iid2, iid3)]
+        check(len({p["telnet"] for p in sts}) == 3 and len({p["web"] for p in sts}) == 3, f"telnet / web ports unique {sts}")
         st, d = await j("GET", f"/api/s/{iid3}/mods")
         check(sorted(m["folder"] for m in d["mods"]) == ["CoolMod", "ModA", "ModB"], f"clone mods {[m['folder'] for m in d['mods']]}")
         st, d = await j("GET", f"/api/s/{iid3}/mods/ModA/file?path=Settings.xml")

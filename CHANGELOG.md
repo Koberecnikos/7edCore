@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1 - 2026-11-17
+
+- Fix: the panel no longer runs the game's `mem` command every 30 s. Besides printing FPS it unloads assets and runs the garbage collector, which froze modded servers for ~0.8 s each time. FPS / chunks / zombies are now measured automatically only while nobody is online, or on request ("Measure now" in the FPS tile)
+- New and duplicated servers get telnet and web map ports no other server uses, even if ports were changed by hand
+
 ## 1.6.0 - 2026-11-17
 
 - Mods: upload several ZIPs at once (file picker or drag and drop) with progress and a Cancel button. A batch is installed only after every file arrived complete and passed the check, so a cancelled or broken upload never leaves a half-installed mod; leftover temp files are cleaned at startup

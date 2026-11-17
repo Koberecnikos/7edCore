@@ -566,9 +566,11 @@ class Instance:
                 if tick % 3 == 0:
                     await self.refresh_players()
                     await self.daylen_tick()
-                if tick % 6 == 1:
-                    if not self.settings.get("daylen_dynamic"):
-                        await self._game_time()
+                if tick % 6 == 1 and not self.settings.get("daylen_dynamic"):
+                    await self._game_time()
+                # the game's "mem" command also runs a full asset unload + GC: a 0.5-1 s freeze on a
+                # modded server. Only automatically while nobody plays, otherwise on request (FPS tile).
+                if not self.players and tick % 120 == 7:
                     await self.refresh_mem()
                 self.push_state()
             except web.HTTPException:
@@ -806,6 +808,7 @@ class Instance:
                     m = re.search(rx, line)
                     if m:
                         d[k] = m.group(1)
+                d["at"] = now_ts()
                 self.meminfo = d
 
     # ---------------------------------------------------------- backups

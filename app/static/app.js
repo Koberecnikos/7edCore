@@ -334,13 +334,15 @@ function renderOverview() {
     ${card(t("ov.version"), esc(g.version || "?"), esc(g.branch + (g.build ? " · build " + g.build : "")))}
     ${card(t("ov.cpu"), live() && s.srv_cpu != null ? s.srv_cpu + " %" : "–", s.host_cpu != null ? `${esc(t("ov.machine"))} ${s.host_cpu} % · load ${(s.load || []).map((x) => x.toFixed(2)).join(" ")}` : "")}
     ${card(t("ov.ram"), live() && s.srv_mem ? fmtBytes(s.srv_mem) : "–", (lim ? esc(t("ov.limit", { n: lim })) + " · " : "") + (s.host_mem_total ? `${esc(t("ov.machine"))} ${fmtBytes(s.host_mem)} / ${fmtBytes(s.host_mem_total)}` : ""))}
-    ${card(t("ov.fps"), mi.fps ? esc(mi.fps) : "–", mi.fps ? `chunks ${esc(mi.chunks)} · zombies ${esc(mi.zombies)} · entities ${esc(mi.entities)}` : "")}
+    ${card(t("ov.fps"), mi.fps && live() ? esc(mi.fps) : "–", (mi.fps && live() ? `chunks ${esc(mi.chunks)} · zombies ${esc(mi.zombies)} · entities ${esc(mi.entities)}` + (mi.at ? ` · ${esc(new Date(mi.at * 1000).toLocaleTimeString(LANG === "cs" ? "cs-CZ" : "en-GB", { hour: "2-digit", minute: "2-digit" }))}` : "") + "<br>" : "")
+      + (live() ? `<a href="#" id="ovFps" class="op-only" title="${esc(t("ov.fpsHint"))}">${esc(t("ov.fpsMeasure"))}</a>` : ""))}
     ${card(t("ov.temp"), s.cpu_temp != null ? Math.round(s.cpu_temp) + " °C" : "–", s.disk_total ? `${esc(t("ov.disk"))} ${fmtBytes(s.disk_used)} / ${fmtBytes(s.disk_total)}` : "")}
     ${card(t("ov.ports"), esc(st.ports?.game || "–"), esc(t("ov.portsHint", { g: st.ports?.game, w: st.ports?.web })) +
       (st.web_map ? ` · <a href="${esc(webMapUrl(st))}" target="_blank" rel="noopener">${esc(t("map.open"))}</a>` : ""))}
     ${card(t("ov.lastbackup"), st.last_backup ? esc(fmtTime(st.last_backup)) : "–")}
   </div>`;
   $("#tab-overview").append(quickActions());
+  const fb = $("#ovFps"); if (fb) fb.onclick = async (e) => { e.preventDefault(); const r = await act(() => api("POST", sp("/quick/fps"))); if (r) { S.status.meminfo = r.meminfo; renderOverview(); } };
   const bi = $("#ovInstall"); if (bi) bi.onclick = () => act(() => api("POST", `/api/versions/${g.branch}/install`), t("ok.queued"));
 }
 

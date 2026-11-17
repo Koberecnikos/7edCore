@@ -116,8 +116,13 @@ class Hub:
         if branch:
             inst.settings["game_version"] = branch
         inst.save_settings()
-        assign = {"ServerPort": str(GAME_PORT_BASE + 10 * k), "TelnetPort": str(TELNET_PORT_BASE + k),
-                  "WebDashboardPort": str(WEB_PORT_BASE + k), "ServerName": name}
+        taken = lambda key: {get_prop(o.cfg, key) for o in self.instances.values()}
+        tel = next(p for p in [TELNET_PORT_BASE + k] + list(range(TELNET_PORT_BASE, TELNET_PORT_BASE + 100))
+                   if str(p) not in taken("TelnetPort"))
+        webp = next((p for p in [WEB_PORT_BASE + k] + list(range(WEB_PORT_BASE, WEB_PORT_BASE + MAX_SERVERS))
+                     if str(p) not in taken("WebDashboardPort")), WEB_PORT_BASE + k)
+        assign = {"ServerPort": str(GAME_PORT_BASE + 10 * k), "TelnetPort": str(tel),
+                  "WebDashboardPort": str(webp), "ServerName": name}
         if not src:
             assign["GameName"] = slugify(name).replace("-", "_") or "Game"
         inst.save_pstate(assign=assign)

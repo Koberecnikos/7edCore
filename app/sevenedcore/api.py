@@ -283,6 +283,12 @@ async def h_quick(request):
         out = await i.command("saveworld", timeout=30)
         i.note("World saved")
         return ok(output=out)
+    if act == "fps":
+        if not i.tw:
+            raise web.HTTPConflict(text="Server is not running")
+        await i.refresh_mem()
+        i.push_state()
+        return ok(meminfo=i.meminfo)
     if act == "say":
         msg = str(d.get("message", "")).strip()[:200]
         if not msg or not i.tw:
