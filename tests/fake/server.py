@@ -8,8 +8,17 @@ props = dict(re.findall(r'<property\s+name="([^"]+)"\s+value="([^"]*)"', open(cf
 here = os.path.dirname(os.path.abspath(__file__))
 ver = open(os.path.join(here, "fakeversion.txt")).read().strip()
 lf = open(log, "a", buffering=1)
-def L(s): lf.write(time.strftime("%Y-%m-%dT%H:%M:%S") + f" 1.000 INF {s}\n")
+def L(s): lf.write(time.strftime("%Y-%m-%dT%H:%M:%S") + f" 1.000 {s if s[:4] in ('ERR ', 'WRN ', 'EXC ') else 'INF ' + s}\n")
 L(f"Version: {ver} (b10) Compatibility Version: {ver}, Build: LinuxServer 64 Bit")
+mods_dir = os.path.join(props["UserDataFolder"], "Mods")
+for m in sorted(os.listdir(mods_dir)) if os.path.isdir(mods_dir) else []:
+    if m.startswith("Broken") or os.path.exists(os.path.join(mods_dir, m, "FAKE_BROKEN")):          # what the real game prints for a mod built for another version
+        L(f"ERR [MODS]     Failed initializing ModAPI instance on mod '{m}' in assembly {m}.Boot (in {mods_dir}/{m}/{m}.dll)")
+        L("EXC This update supports native 7D2D 3.1, 3.2 and 3.3.")
+        L(f'WRN XML patch for "items.xml" from mod "{m}" did not apply: <remove xpath="/items/item[@name=\'gone\']"  (line 2 at pos 3)')
+        L("ERR XML loader: Loading and parsing 'items.xml' failed")
+        L(f"EXC No item class '{m}.ItemClassThing, {m} found!")
+        lf.write("ERROR: Shader Standard shader is not supported on this GPU (none of subshaders/fallbacks are suitable)\n")
 world = props.get("GameWorld") or "Navezgane"
 world = "Pregen06k01" if world == "RWG" else world
 sd = os.path.join(props["UserDataFolder"], "Saves", world, props.get("GameName", "MyGame"))

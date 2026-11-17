@@ -156,6 +156,7 @@ def mod_info(d: Path, enabled: bool):
             dn, nm = root.find(".//DisplayName"), root.find(".//Name")
             info["name"] = (dn.get("value") if dn is not None and dn.get("value") else
                             nm.get("value") if nm is not None and nm.get("value") else d.name)
+            info["id"] = nm.get("value") if nm is not None and nm.get("value") else d.name
             for k in ("Version", "Author", "Description", "Website"):
                 el = root.find(f".//{k}")
                 if el is not None and el.get("value"):
@@ -225,6 +226,18 @@ class Mods:
 
     def save(self):
         save_json(self.meta_file, self.meta)
+
+    def for_check(self, enabled_only=True):
+        """[{"folder", "name", "id", "path"}] for log analysis / compatibility checks."""
+        out = []
+        for base, en in ((self.on, True), (self.off, False)):
+            if (enabled_only and not en) or not base.exists():
+                continue
+            for d in sorted(base.iterdir()):
+                if d.is_dir():
+                    i = mod_info(d, en)
+                    out.append({"folder": d.name, "name": i["name"], "id": i.get("id", d.name), "path": d})
+        return out
 
     def path(self, folder):
         folder = Path(str(folder)).name

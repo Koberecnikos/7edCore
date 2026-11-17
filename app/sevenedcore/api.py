@@ -885,11 +885,38 @@ async def h_webmap_render(request):
     return ok(size=size, output=out[-5:])
 
 
+# ------------------------------------------------------------------ diagnostics
+async def h_logcheck(request):
+    i = inst_of(request)
+    if request.query.get("refresh") or not i.logcheck:
+        res = await i.run_logcheck(quiet=True)
+    else:
+        res = i.logcheck
+    return web.json_response(res or {"mods": {}, "general": [], "harmless": [], "summary": None})
+
+
+async def h_mods_compat(request):
+    """Static check of every installed mod against an installed game version (default: the server's own)."""
+    from . import modcheck
+    i = inst_of(request)
+    d = await request.json() if request.can_read_body else {}
+    branch = str(d.get("branch") or i.branch)
+    if not HUB.steam.installed(branch):
+        raise web.HTTPConflict(text=f"Game version '{branch}' is not installed - install it on the Game versions page first")
+    mods = {m["folder"]: m["path"] for m in i.mods.for_check(enabled_only=not d.get("all"))}
+    res = await asyncio.to_thread(modcheck.check_mods, mods, HUB.steam.dir(branch))
+    res.update(branch=branch, version=HUB.steam.version_label(branch))
+    return web.json_response(res)
+
+
 # ------------------------------------------------------------------ mods
 async def h_mods(request):
     i = inst_of(request)
     mods = await asyncio.to_thread(i.mods.list)
-    return web.json_response({"mods": mods, "path": rel(i.mods.on),
+    lc = i.logcheck or {}
+    for m in mods:
+        m["issues"] = (lc.get("mods") or {}).get(m["folder"]) or []
+    return web.json_response({"mods": mods, "path": rel(i.mods.on), "logcheck": {k: lc.get(k) for k in ("summary", "log", "checked")} if lc else None,
                               "game": i.game_version_label(), "running": i.state in ("running", "starting"),
                               "policy": i.settings["mod_updates"],
                               "total": {"count": len(mods), "enabled": sum(1 for m in mods if m["enabled"]),
@@ -1236,6 +1263,8 @@ def routes(app):
     r.add_get(p + "/webmap", h_webmap)
     r.add_post(p + "/webmap", h_webmap_set)
     r.add_post(p + "/webmap/render", h_webmap_render)
+    r.add_get(p + "/logcheck", h_logcheck)
+    r.add_post(p + "/mods/compat", h_mods_compat)
     r.add_get(p + "/mods", h_mods)
     r.add_post(p + "/mods/upload", h_mods_upload)
     r.add_post(p + "/mods/install", h_mods_install)

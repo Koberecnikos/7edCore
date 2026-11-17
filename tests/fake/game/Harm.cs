@@ -1,0 +1,1 @@
+namespace HarmonyLib { [System.AttributeUsage(System.AttributeTargets.All, AllowMultiple=true)] public class HarmonyPatch : System.Attribute { public HarmonyPatch(System.Type t, string m){} public HarmonyPatch(System.Type t){} public HarmonyPatch(string m){} } }

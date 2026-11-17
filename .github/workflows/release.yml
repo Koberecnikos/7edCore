@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install aiohttp psutil
+      - run: pip install aiohttp psutil dnfile lxml
       - name: API tests (fake steamcmd + fake game server)
         run: |
           mkdir -p /tmp/data

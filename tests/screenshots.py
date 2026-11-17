@@ -29,6 +29,9 @@ MODS = [
     ("SmarterZombies", "3.0.1", "Zombies flank, climb and remember where they lost you.", "undead-lab",
      {"settings.json": '{\n  "flanking": true,\n  "climbChance": 0.25,\n  "memorySeconds": 45\n}\n', "Config/entityclasses.xml": "<configs/>"}),
     ("Bigger_Hordes", "1.2", "Blood moon hordes scale with the number of players.", "hordemaster", {"Config/gamestages.xml": "<configs/>"}),
+    ("StorageMadness", "1.0.7", "Craft from nearby containers, quick stack, shared storage.", "oldmodder",
+     {"StorageMadness.dll": open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake", "game", "TestCodeMod.dll"), "rb").read(),
+      "FAKE_BROKEN": "", "Config/items.xml": "<configs><remove xpath=\"/items/item[@name='oldBackpack']\"/></configs>"}),
 ]
 
 
@@ -96,10 +99,17 @@ async def shots(iid):
         async def tab(name):
             await pg.click(f"#tabs button[data-tab={name}]"); await pg.wait_for_timeout(900)
         await tab("mods")
+        await pg.click("#mCompat"); await pg.wait_for_timeout(1500)
         await shot("mods")
+        await pg.click("#mProblems [data-iss] >> nth=0"); await pg.wait_for_timeout(600)
+        await shot("mod-problems", clip_sel="#dlg")
+        await pg.keyboard.press("Escape"); await pg.wait_for_timeout(400)
+        await pg.click("#mLog"); await pg.wait_for_timeout(1200)
+        await shot("logcheck", clip_sel="#dlg")
+        await pg.keyboard.press("Escape"); await pg.wait_for_timeout(400)
         await pg.fill("#mSearch", "zomb"); await pg.wait_for_timeout(300)
         await pg.fill("#mSearch", ""); await pg.wait_for_timeout(200)
-        await pg.click("[data-cfg] >> nth=3"); await pg.wait_for_timeout(700)     # sorted by name: ServerTools_Lite
+        await pg.click("[data-cfg] >> nth=3"); await pg.wait_for_timeout(700)     # sorted by name: BetterBackpacks, Bigger Hordes, NoBuffHud, ServerTools
         await pg.click("#dlg [data-f] >> nth=0"); await pg.wait_for_timeout(600)
         await shot("mod-config", clip_sel="#dlg")
         await pg.keyboard.press("Escape"); await pg.wait_for_timeout(500)

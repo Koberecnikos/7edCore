@@ -1,0 +1,4 @@
+<items>
+  <item name="gunPistol"><property name="Tags" value="weapon"/></item>
+  <item name="meleeClub"><property name="Tags" value="melee"/></item>
+</items>

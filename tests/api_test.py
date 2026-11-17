@@ -214,6 +214,26 @@ async def main():
         st, d = await j("POST", P + "/mods/ModB/file", json={"path": "config.json", "reset": True})
         st, d = await j("GET", P + "/mods/ModB/file?path=config.json")
         check('"speed": 1' in d["content"], "reset to original")
+        # mod diagnostics: static compatibility check + log check after a start
+        dll = open(__file__.rsplit("/", 1)[0] + "/fake/game/TestCodeMod.dll", "rb").read()
+        fd = aiohttp.FormData()
+        fd.add_field("file", modzip("BrokenMod", {"BrokenMod.dll": dll, "Config/items.xml":
+            "<configs><set xpath=\"/items/item[@name='gunPistol']/property[@name='Tags']/@value\">x</set>"
+            "<remove xpath=\"/items/item[@name='gone']\"/><append xpath=\"/items/item[@name='modAItem']\"><property name='a'/></append></configs>",
+            "Config/blocks.xml": "<configs/>"}), filename="broken.zip")
+        st, d = await j("POST", P + "/mods/upload", data=fd)
+        check(st == 200, f"broken mod uploaded {d}")
+        st, d = await j("POST", P + "/mods/compat", json={})
+        bm = [x["kind"] + ":" + x["text"] for x in d["mods"].get("BrokenMod", [])]
+        check(st == 200 and d["game_dlls"] and any("readItemStackArray" in x for x in bm) and not any("ITileEntityLootable" in x for x in bm)
+              and any(x.startswith("xpath_nomatch") and "gone" in x for x in bm) and not any("gunPistol" in x for x in bm), f"compat vs V 3.4 {bm}")
+        st, d = await j("POST", "/api/versions/latest_experimental/install")
+        await wait(lambda d: d["busy"] is None and not d["queued"] and any(b["name"] == "latest_experimental" and b["installed"] for b in d["branches"]), "/api/versions")
+        st, d = await j("POST", P + "/mods/compat", json={"branch": "latest_experimental"})
+        bm = [x["text"] for x in d["mods"].get("BrokenMod", [])]
+        check(st == 200 and any("ITileEntityLootable" in x for x in bm) and any("TileEntityWorkstation.fuel" in x for x in bm), f"compat vs V 3.5 {bm}")
+        st, d = await j("POST", P + "/mods/compat", json={"branch": "v2.6"})
+        check(st == 409, "compat needs an installed version")
         # web map + dynamic day length (server 1 running)
         st, d = await j("POST", P + "/webmap", json={"enabled": True, "public": True})
         check(st == 200 and d["enabled"] and d["rendering"] and d["permission"] == 2000, f"web map enabled + public {d}")
@@ -226,6 +246,15 @@ async def main():
         d = await wait(lambda d: d["state"] == "running" and d["console_connected"], P + "/status")
         st, d = await j("GET", P + "/webmap")
         check(d.get("reachable") is True, f"web map reachable {d}")
+        await asyncio.sleep(1.5)
+        st, d = await j("GET", P + "/logcheck")
+        bm = [x["kind"] for x in d["mods"].get("BrokenMod", [])]
+        check("code_failed" in bm and "patch_not_applied" in bm and "xml_failed" in bm and d["summary"]["xml_failed"] == ["items.xml"]
+              and d["summary"]["harmless"] >= 1, f"log check {d.get('summary')} {bm}")
+        st, d = await j("GET", P + "/status")
+        check(d["notices"].get("problems", {}).get("mods_error") == ["BrokenMod"], f"problems notice {d['notices'].get('problems')}")
+        st, d = await j("GET", P + "/mods")
+        check(any(m["folder"] == "BrokenMod" and m["issues"] for m in d["mods"]) and d["logcheck"]["summary"], "mods list carries issues")
         st, d = await j("POST", P + "/quick/fps")
         check(st == 200 and d["meminfo"].get("fps") == "30.00", f"FPS on request {d}")
         d = await wait(lambda d: d["daylen"]["frozen"], P + "/status", 40)
@@ -243,6 +272,8 @@ async def main():
         st, d = await j("POST", P + "/settings", json={"daylen_dynamic": False})
         st, d = await j("POST", P + "/server/stop")
         await wait(lambda d: d["state"] == "stopped", P + "/status", 40)
+        st, d = await j("POST", P + "/mods/BrokenMod/delete")
+        check(st == 200, "broken mod deleted")
         # backups
         st, d = await j("POST", P + "/backups/create")
         await wait(lambda d: len(d["backups"]) > 0 and not d["busy"], P + "/backups")

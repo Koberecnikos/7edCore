@@ -4,7 +4,8 @@ ARG VERSION=dev
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
 RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl tzdata lib32gcc-s1 lib32stdc++6 libc6:i386 \
-        python3 python3-aiohttp python3-psutil tar zstd procps util-linux \
+        python3 python3-aiohttp python3-psutil python3-lxml python3-pefile python3-pip tar zstd procps util-linux \
+    && pip3 install --no-cache-dir --break-system-packages --no-deps dnfile==0.18.0 \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /opt/steamcmd \
     && curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz -C /opt/steamcmd \

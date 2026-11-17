@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 - 2026-11-17
+
+- Mods: problems from the last start, per mod - code that did not start (with the mod's reason), built for another game version (missing game types, Harmony patch targets that no longer exist), XML changes that did not apply, missing dependencies (e.g. a weapon pack without its resources mod), and game XML files that failed to load because of a mod (with the follow-up failures of recipes / loot / traders). Red / yellow tags in the list, a summary above it and a notice in the Overview
+- Console → 🩺 Analyse the log: all errors grouped by mod, other errors, and the messages that are normal on a dedicated server (shaders, textures, world generator …) counted separately
+- Mods → Check compatibility with an installed game version, without starting the server: types, methods and fields a code mod uses from the game's Assembly-CSharp.dll, Harmony patch targets, and every XPath patch against the game's own XML (patches that only touch another mod's content are recognised)
+- Docker image: adds lxml and dnfile for the checks
+
 ## 1.6.1 - 2026-11-17
 
 - Fix: the panel no longer runs the game's `mem` command every 30 s. Besides printing FPS it unloads assets and runs the garbage collector, which froze modded servers for ~0.8 s each time. FPS / chunks / zombies are now measured automatically only while nobody is online, or on request ("Measure now" in the FPS tile)

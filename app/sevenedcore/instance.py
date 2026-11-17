@@ -107,6 +107,7 @@ class Instance:
         self.notices = {}
         self.pending, self.pending_what = None, ""
         self.daylen_applied, self.freeze_at, self.time_sample, self.daylen_effective = None, None, None, None
+        self.logcheck = load_json(self.dir / "logcheck.json", None)
 
     # ---------------------------------------------------------- basics
     @property
@@ -333,6 +334,7 @@ class Instance:
             self.note("Server is ready for players")
             self._track_save_version()
             self.apply_map_permission()
+            asyncio.create_task(self.run_logcheck())
 
     async def _telnet_loop(self, proc):
         while proc.returncode is None:
@@ -407,6 +409,8 @@ class Instance:
         self.players = []
         expected = self.state == "stopping"
         self.note(f"Server exited (code {rc}){'' if expected else ' - UNEXPECTED'}")
+        if not expected or not self.ready_noted:
+            asyncio.create_task(self.run_logcheck())
         self.proc, self.started_at = None, None
         if expected:
             self.set_state("stopped")
@@ -599,6 +603,34 @@ class Instance:
             asyncio.create_task(later())
         else:
             self.note(f"Warning: RAM {gb:.1f} GB is over the {lim:g} GB limit")
+
+    # ---------------------------------------------------------- log analysis
+    def latest_log(self):
+        if self.logfile and Path(self.logfile).exists():
+            return Path(self.logfile)
+        logs = sorted(self.logs.glob("server_*.log"), key=lambda p: p.stat().st_mtime)
+        return logs[-1] if logs else None
+
+    async def run_logcheck(self, quiet=False):
+        from . import logcheck
+        f = self.latest_log()
+        if not f:
+            return None
+        res = await asyncio.to_thread(logcheck.analyze_file, f, self.mods.for_check(enabled_only=False))
+        res["log"], res["checked"] = f.name, now_ts()
+        self.logcheck = res
+        save_json(self.dir / "logcheck.json", res)
+        sm = res["summary"]
+        if sm["mods_error"] or sm["xml_failed"]:
+            self.notices["problems"] = {"mods_error": sm["mods_error"], "mods_warning": sm["mods_warning"], "xml_failed": sm["xml_failed"]}
+            if not quiet:
+                self.note(f"Log check: {len(sm['mods_error'])} mod(s) with errors ({', '.join(sm['mods_error'][:6])})"
+                          + (f", game files that failed to load: {', '.join(sm['xml_failed'])}" if sm["xml_failed"] else "")
+                          + " - see Mods")
+        else:
+            self.notices.pop("problems", None)
+        self.push_state()
+        return res
 
     # ---------------------------------------------------------- built-in web map
     def admin_file(self):

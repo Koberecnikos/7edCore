@@ -30,5 +30,13 @@ os.chmod(os.path.join(d, "7DaysToDieServer.x86_64"), 0o755)
 cfg = "serverconfig_v3.xml" if ver.startswith("V 3") else "serverconfig.xml"   # V3 moved gameplay settings to SandboxCode
 shutil.copy(os.path.join(HERE, cfg), os.path.join(d, "serverconfig.xml"))
 open(os.path.join(d, "fakeversion.txt"), "w").write(ver)
+G = os.path.join(HERE, "game")
+os.makedirs(os.path.join(d, "7DaysToDieServer_Data", "Managed"), exist_ok=True)
+os.makedirs(os.path.join(d, "Data", "Config"), exist_ok=True)
+shutil.copy(os.path.join(G, "Assembly-CSharp-3.5.dll" if ver.startswith("V 3.5") else "Assembly-CSharp-3.4.dll"),
+            os.path.join(d, "7DaysToDieServer_Data", "Managed", "Assembly-CSharp.dll"))
+shutil.copy(os.path.join(G, "items.xml"), os.path.join(d, "Data", "Config", "items.xml"))
+os.makedirs(os.path.join(d, "Mods", "0_TFP_Harmony"), exist_ok=True)
+shutil.copy(os.path.join(G, "0Harmony.dll"), os.path.join(d, "Mods", "0_TFP_Harmony", "0Harmony.dll"))
 open(os.path.join(d, "steamapps", "appmanifest_294420.acf"), "w").write(f'"AppState"\n{{\n\t"buildid"\t\t"{build}"\n}}\n')
 print("Success! App '294420' fully installed.")

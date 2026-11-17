@@ -244,6 +244,7 @@ function addLine(m) {
   while (c.childElementCount > 3000) c.firstChild.remove();
   if ($("#autoScroll").checked && TAB === "console") c.scrollTop = c.scrollHeight;
 }
+$("#btnLogcheck").onclick = () => logCheckDialog(true);
 $("#cmdForm").onsubmit = async (e) => {
   e.preventDefault();
   const cmd = $("#cmdInput").value.trim();
@@ -289,6 +290,12 @@ function renderNotices() {
   }
   if (n.mods?.length && $("#pageView").hidden) {
     const el = h(`<div class="notice info"><span>${esc(t("notice.mods", { n: n.mods.length }))} ${n.mods.map((m) => esc(m.name + " → " + m.latest)).join(", ")}</span><span class="sp"></span><button class="small">${esc(t("tab.mods"))}</button></div>`).firstChild;
+    el.querySelector("button").onclick = () => openTab("mods");
+    box.append(el);
+  }
+  if (n.problems && $("#pageView").hidden) {
+    const p = n.problems;
+    const el = h(`<div class="notice bad"><span>${esc(t("notice.problems", { n: p.mods_error.length }))} ${esc(p.mods_error.slice(0, 6).join(", "))}${p.xml_failed.length ? " · " + esc(t("diag.xmlFailed", { f: p.xml_failed.join(", ") })) : ""}</span><span class="sp"></span><button class="small">${esc(t("tab.mods"))}</button></div>`).firstChild;
     el.querySelector("button").onclick = () => openTab("mods");
     box.append(el);
   }
@@ -755,7 +762,71 @@ async function importConfigDialog() {
   if (r) { toast(t("cx.done", { p: r.imported.join(", ") })); loadSettings(); }
 }
 // ------------------------------------------------------------------ mods
-let MODS = null, MSORT = "name", MDESC = false, MQ = "", MUP = null;
+let MODS = null, MSORT = "name", MDESC = false, MQ = "", MUP = null, MCOMPAT = null;
+const SEV_ICON = { error: "⛔", warning: "⚠", info: "ℹ" };
+function modIssues(folder) {
+  const a = (MODS?.mods.find((m) => m.folder === folder)?.issues || []).map((x) => ({ ...x, src: "log" }));
+  const b = MCOMPAT?.server === CUR ? (MCOMPAT.mods[folder] || []).map((x) => ({ ...x, src: "compat" })) : [];
+  return [...a, ...b];
+}
+function issueTags(folder) {
+  const all = modIssues(folder);
+  const e = all.filter((x) => x.severity === "error").length, w = all.filter((x) => x.severity === "warning").length;
+  const ok = MCOMPAT?.server === CUR && MCOMPAT.mods[folder] && !all.some((x) => x.severity !== "info");
+  return (e ? `<button type="button" class="tag no small-tag" data-iss="${esc(folder)}">⛔ ${esc(t("diag.errors", { n: e }))}</button>` : "")
+    + (w ? ` <button type="button" class="tag warnt small-tag" data-iss="${esc(folder)}">⚠ ${esc(t("diag.warnings", { n: w }))}</button>` : "")
+    + (ok ? ` <span class="tag yes">${esc(t("diag.okFor", { v: MCOMPAT.version || MCOMPAT.branch }))}</span>` : "");
+}
+function issueList(items) {
+  return items.length ? `<ul class="issues">${items.map((x) => `<li class="${esc(x.severity)}">${SEV_ICON[x.severity] || ""} ${esc(x.text)}${x.count > 1 ? ` <span class="muted small">×${x.count}</span>` : ""}
+    ${x.src ? ` <span class="tag">${esc(t("diag.src." + x.src))}</span>` : ""}${x.file ? ` <span class="muted small">${esc(x.file)}</span>` : ""}
+    ${x.detail ? `<div class="muted small mono">${esc(x.detail)}</div>` : ""}</li>`).join("")}</ul>` : `<p class="empty">${esc(t("diag.none"))}</p>`;
+}
+function renderProblems() {
+  const box = $("#mProblems"); if (!box || !MODS) return;
+  const sm = MODS.logcheck?.summary, out = [];
+  if (sm && (sm.mods_error.length || sm.xml_failed.length || sm.mods_warning.length)) {
+    out.push(`<div class="alert ${sm.mods_error.length || sm.xml_failed.length ? "downgrade" : "newer_minor"}">
+      <b>${esc(t("diag.lastStart", { f: MODS.logcheck.log || "" }))}</b>
+      ${sm.mods_error.length ? `<div>⛔ ${esc(t("diag.modsErr", { n: sm.mods_error.length }))}: ${sm.mods_error.map((f) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}
+      ${sm.mods_warning.length ? `<div>⚠ ${esc(t("diag.modsWarn", { n: sm.mods_warning.length }))}: ${sm.mods_warning.map((f) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}
+      ${sm.xml_failed.length ? `<div>⛔ ${esc(t("diag.xmlFailed", { f: sm.xml_failed.join(", ") }))}</div>` : ""}
+      <div class="small" style="margin-top:4px"><a href="#" id="mLogAll">${esc(t("diag.showAll"))}</a></div></div>`);
+  } else if (sm) out.push(`<div class="alert same small">✔ ${esc(t("diag.cleanStart", { f: MODS.logcheck.log || "" }))}</div>`);
+  if (MCOMPAT?.server === CUR) {
+    const bad = Object.entries(MCOMPAT.mods).filter(([, l]) => l.some((x) => x.severity === "error"));
+    const warn = Object.entries(MCOMPAT.mods).filter(([, l]) => !l.some((x) => x.severity === "error") && l.some((x) => x.severity === "warning"));
+    out.push(`<div class="alert ${bad.length ? "downgrade" : warn.length ? "newer_minor" : "same"}"><b>${esc(t("diag.compatTitle", { v: MCOMPAT.version || MCOMPAT.branch }))}</b>
+      ${!MCOMPAT.game_dlls ? `<div class="small">${esc(t("diag.noDlls"))}</div>` : ""}
+      <div>${bad.length ? `⛔ ${esc(t("diag.compatBad", { n: bad.length }))}: ${bad.map(([f]) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}` : `✔ ${esc(t("diag.compatOk"))}`}</div>
+      ${warn.length ? `<div>⚠ ${esc(t("diag.compatWarn", { n: warn.length }))}: ${warn.map(([f]) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}</div>`);
+  }
+  box.innerHTML = out.join("");
+  $$("[data-iss]", box).forEach((a) => a.onclick = (e) => { e.preventDefault(); modIssuesDialog(a.dataset.iss); });
+  const la = $("#mLogAll", box); if (la) la.onclick = (e) => { e.preventDefault(); logCheckDialog(false); };
+}
+async function modIssuesDialog(folder) {
+  const m = MODS?.mods.find((x) => x.folder === folder);
+  const items = modIssues(folder);
+  const fix = items.some((x) => ["code_failed", "types_failed", "harmony_target", "missing_type", "missing_member", "xml_failed", "missing_class"].includes(x.kind))
+    ? t("diag.fixCode") : items.some((x) => x.kind === "missing_dependency") ? t("diag.fixDep") : items.some((x) => ["patch_not_applied", "xpath_nomatch"].includes(x.kind)) ? t("diag.fixPatch") : "";
+  await dialog(t("diag.modTitle", { n: m?.name || folder }), `${issueList(items)}${fix ? `<p class="hint">💡 ${esc(fix)}</p>` : ""}`, t("act.close"), false, "");
+}
+async function logCheckDialog(refresh) {
+  const d = await act(() => api("GET", sp("/logcheck" + (refresh ? "?refresh=1" : ""))));
+  if (!d) return;
+  if (!d.summary) return dialog(t("diag.logTitle"), `<p class="empty">${esc(t("diag.noLog"))}</p>`, t("act.close"), false, "");
+  if (MODS) { MODS.logcheck = { summary: d.summary, log: d.log, checked: d.checked }; for (const m of MODS.mods) m.issues = d.mods[m.folder] || []; renderModList(); renderProblems(); }
+  const mods = Object.entries(d.mods).sort((a, b) => (a[1].some((x) => x.severity === "error") ? 0 : 1) - (b[1].some((x) => x.severity === "error") ? 0 : 1));
+  const body = `<p class="muted small">${esc(t("diag.logHint", { f: d.log }))}</p>
+    <h4>${esc(t("diag.secMods"))}</h4>${mods.length ? mods.map(([f, l]) => `<details${l.some((x) => x.severity === "error") ? " open" : ""}><summary><b>${esc(f)}</b> ${l.some((x) => x.severity === "error") ? "⛔" : "⚠"}</summary>${issueList(l)}</details>`).join("") : `<p class="empty">✔ ${esc(t("diag.none"))}</p>`}
+    <h4>${esc(t("diag.secGeneral"))}</h4>${issueList(d.general)}
+    <h4>${esc(t("diag.secHarmless"))}</h4><p class="muted small">${esc(t("diag.harmlessHint"))}</p>
+    <ul class="issues">${d.harmless.map((x) => `<li class="info">✔ ${esc(x.text)} <span class="muted small">×${x.count}</span></li>`).join("")}</ul>`;
+  const dlg = $("#dlg"); dlg.classList.add("wide");
+  await dialog(t("diag.logTitle"), body, t("act.close"), false, "");
+  dlg.classList.remove("wide");
+}
 async function loadMods() {
   const el = $("#tab-mods");
   const d = await act(() => api("GET", sp("/mods")));
@@ -765,6 +836,10 @@ async function loadMods() {
     <div class="row" style="margin-bottom:12px"><button class="primary admin-only" id="mZip">${t("mods.addZip")}</button>
       <input id="mUrl" class="admin-only" placeholder="${esc(t("mods.urlPh"))}" style="flex:1;min-width:260px"><button class="admin-only" id="mUrlBtn">${t("mods.addUrl")}</button>
       <button id="mCheck">${t("mods.checkAll")}</button></div>
+    <div class="row" style="margin-bottom:12px"><button class="admin-only" id="mCompat">🩺 ${t("diag.compat")}</button>
+      <select id="mCompatVer" class="admin-only" title="${esc(t("diag.compatVer"))}"></select>
+      <button id="mLog">📋 ${t("diag.logBtn")}</button><span class="muted small sp">${esc(t("diag.hint"))}</span></div>
+    <div id="mProblems"></div>
     <div class="drop admin-only" id="mDrop">${esc(t("mods.drop"))}</div>
     <div id="mUpload"></div>
     <div class="row mods-bar"><b id="mTotal"></b><span class="sp"></span>
@@ -774,6 +849,17 @@ async function loadMods() {
     <div id="mList"></div>`;
   renderModList();
   renderUpload();
+  renderProblems();
+  getVersions().then((v) => {
+    const sel = $("#mCompatVer"); if (!sel) return;
+    const inst = (v.branches || []).filter((b) => b.installed);
+    sel.innerHTML = inst.map((b) => `<option value="${esc(b.name)}"${b.name === S.status.game?.branch ? " selected" : ""}>${esc(b.name + (b.version ? " – " + b.version : ""))}${b.name === S.status.game?.branch ? " ✓" : ""}</option>`).join("");
+  }).catch(() => null);
+  $("#mCompat").onclick = async () => {
+    const r = await act(() => api("POST", sp("/mods/compat"), { branch: $("#mCompatVer").value || S.status.game?.branch }));
+    if (r) { MCOMPAT = { ...r, server: CUR }; renderModList(); renderProblems(); }
+  };
+  $("#mLog").onclick = () => logCheckDialog(true);
   $("#mZip").onclick = () => { const f = $("#filePick"); f.accept = ".zip"; f.multiple = true; f.value = ""; f.onchange = () => { f.multiple = false; if (f.files.length) uploadMods([...f.files]); }; f.click(); };
   const dz = $("#mDrop");
   dz.ondragover = (e) => { e.preventDefault(); dz.classList.add("over"); };
@@ -804,19 +890,20 @@ function renderModList() {
       : `<span class="ok small">${esc(t("mods.uptodate"))}</span>`;
   };
   const q = MQ.trim().toLowerCase();
-  const key = { name: (m) => m.name.toLowerCase(), size: (m) => m.size || 0, installed: (m) => m.installed_at || 0, status: (m) => (m.enabled ? 0 : 1) + (m.check?.update ? -2 : 0) }[MSORT];
+  const key = { name: (m) => m.name.toLowerCase(), size: (m) => m.size || 0, installed: (m) => m.installed_at || 0, status: (m) => { const is = modIssues(m.folder); return (is.some((x) => x.severity === "error") ? -8 : is.some((x) => x.severity === "warning") ? -4 : 0) + (m.enabled ? 0 : 1) + (m.check?.update ? -2 : 0); } }[MSORT];
   const rows = d.mods.map((m, i) => ({ m, i }))
     .filter(({ m }) => !q || [m.name, m.folder, m.author, m.description, m.version].some((x) => String(x || "").toLowerCase().includes(q)))
     .sort((a, b) => { const x = key(a.m), y = key(b.m); return (x < y ? -1 : x > y ? 1 : a.m.name.localeCompare(b.m.name)) * (MDESC ? -1 : 1); });
   el.innerHTML = !d.mods.length ? `<p class="empty">${esc(t("mods.none"))}</p>` : !rows.length ? `<p class="empty">${esc(t("mods.noMatch"))}</p>`
     : `<table style="margin-top:8px"><tr><th>${t("mods.title")}</th><th>${t("mods.version")}</th><th>${t("mods.source")}</th><th></th></tr>
-    ${rows.map(({ m, i }) => `<tr${m.enabled ? "" : ' class="dim"'}><td><b>${esc(m.name)}</b> ${m.enabled ? "" : `<span class="tag">${t("mods.disabled")}</span>`}<div class="muted small">${esc(m.folder)} · ${fmtBytes(m.size)}${m.author ? " · " + esc(m.author) : ""}${m.installed_at ? " · " + esc(fmtTime(m.installed_at)) : ""}</div><div class="small">${esc(m.description).slice(0, 160)}</div></td>
+    ${rows.map(({ m, i }) => `<tr${m.enabled ? "" : ' class="dim"'}><td><b>${esc(m.name)}</b> ${m.enabled ? "" : `<span class="tag">${t("mods.disabled")}</span>`} ${issueTags(m.folder)}<div class="muted small">${esc(m.folder)} · ${fmtBytes(m.size)}${m.author ? " · " + esc(m.author) : ""}${m.installed_at ? " · " + esc(fmtTime(m.installed_at)) : ""}</div><div class="small">${esc(m.description).slice(0, 160)}</div></td>
       <td>${esc(m.version || "–")}${m.release ? `<div class="muted small">${esc(m.release)}</div>` : ""} ${compatTag(m.compat)}</td>
       <td>${m.source ? `<span class="small">${esc(m.source.url || m.source.repo || "")}</span>` : ""}<div>${checkInfo(m)}</div></td>
       <td class="admin-only"><div class="row"><button class="small" data-cfg="${i}">⚙ ${t("mods.configure")}</button><button class="small" data-src="${i}">${t("mods.source")}</button>${m.source ? `<button class="small" data-chk="${i}">${t("mods.find")}</button>` : ""}
         ${m.check?.update && !m.check.manual ? `<button class="small primary" data-upd="${i}">${t("act.update")}</button>` : ""}
         <button class="small" data-tog="${i}">${m.enabled ? t("act.disable") : t("act.enable")}</button><button class="small danger" data-del="${i}">${t("act.delete")}</button></div></td></tr>`).join("")}</table>`;
   const mod = (b, k) => d.mods[b.dataset[k]];
+  $$("[data-iss]", el).forEach((b) => b.onclick = () => modIssuesDialog(b.dataset.iss));
   $$("[data-cfg]", el).forEach((b) => b.onclick = () => modConfigDialog(mod(b, "cfg")));
   $$("[data-src]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "src"); const v = await promptDlg(t("mods.source"), t("mods.sourcePh"), m.source?.url || ""); if (v !== null && await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/source`), { source: v }))) loadMods(); });
   $$("[data-chk]", el).forEach((b) => b.onclick = async () => { b.disabled = true; await act(() => api("POST", sp(`/mods/${encodeURIComponent(mod(b, "chk").folder)}/check`))); loadMods(); });

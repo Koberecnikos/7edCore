@@ -54,6 +54,9 @@ More than 50 presets. Each one opens a preview that lists every change before an
 - **Safe uploads.** A batch is installed only after every file has arrived complete and been checked. **Cancel** stops the upload and nothing from that batch is installed, so there are no half-copied mods.
 - **Search and sort** by name, size, install date or status. The header shows the number of mods (and how many are enabled) and their total size.
 - **Configure.** Each mod has a ⚙ button that lists its own settings files (XML, JSON, INI, TXT…) and opens them in an editor. XML and JSON are validated before saving, the author's original is kept for **Reset to original**, and the panel says when a restart is needed. XML patches of game data are listed separately as advanced.
+- **Problems from the last start.** After every start 7edCore reads the server log and tells you, per mod, what went wrong: code that did not start (and the mod's own reason), a mod built for another game version (missing game types, Harmony patches whose target method no longer exists), XML changes that did not apply, missing dependencies (for example a weapon pack without its resources mod), and game files that failed to load because of a mod (when `items.xml` fails, everything after the error is missing, so recipes, loot and traders break too). Mods with problems get a red or yellow tag, and the Overview shows a notice.
+- **Log analysis** (Console → 🩺) groups every error by mod and separates the messages that are normal on a dedicated server (shaders, textures, world generator notes …) so they don't hide the real ones.
+- **Compatibility check without starting the server.** Pick any installed game version and 7edCore checks every mod against it: each type, method and field a code mod uses from the game's `Assembly-CSharp.dll`, every Harmony patch target, and every XML patch (XPath) against the game's own XML. Use it before a game update: install the new version on the Game versions page, check, and you know which mods need an update first. Mods cannot be converted to a new game version automatically: code mods have to be rebuilt by their author against the new game code, so the check tells you exactly which ones and why.
 - **Find compatible version** picks the newest release made for your server's game version.
 - Updates keep your edited config files. If the author changed the same file, their version is saved next to yours as `*.new`.
 - Enable, disable or delete mods. Automatic or notify-only mod updates are set per server.
@@ -100,6 +103,9 @@ More than 50 presets. Each one opens a preview that lists every change before an
 
 **Mods.** Batch upload with progress and cancel, search, sorting and totals.
 <p align="center"><img src="docs/screenshot-mods.jpg" width="90%"></p>
+
+**Mod problems.** What failed in the last start and what the compatibility check found, per mod.
+<p align="center"><img src="docs/screenshot-mod-problems.jpg" width="60%"> <img src="docs/screenshot-logcheck.jpg" width="80%"></p>
 
 **Mod configuration.** The mod's own settings files open in an editor; edits survive mod updates.
 <p align="center"><img src="docs/screenshot-mod-config.jpg" width="70%"></p>
