@@ -37,6 +37,9 @@ class Hub:
             if (INST_ROOT / iid).is_dir():
                 self.instances[iid] = Instance(self, iid, reg["names"].get(iid, iid))
                 self.order.append(iid)
+                for junk in (INST_ROOT / iid).glob(".*_*"):     # half-finished uploads / downloads / extractions
+                    if junk.is_dir() and junk.name.split("_")[0] in (".up", ".mod", ".dl", ".import", ".restore"):
+                        shutil.rmtree(junk, ignore_errors=True)
         if not self.order:
             self.create("Server 1", announce=False)
 
@@ -62,29 +65,51 @@ class Hub:
         save_json(REGISTRY_FILE, {"order": ["server-1"], "names": {"server-1": "Server 1"}})
         print("[7edcore] migrated single-server data -> instances/server-1", flush=True)
 
-    def free_slot(self):
+    def used_slots(self):
         used = set()
         for i in self.instances.values():
             try:
                 used.add((int(get_prop(i.cfg, "ServerPort") or 0) - GAME_PORT_BASE) // 10)
             except ValueError:
                 pass
+        return used
+
+    def free_slot(self):
+        used = self.used_slots()
         return next((k for k in range(MAX_SERVERS) if k not in used), None)
 
-    def create(self, name, clone_from=None, branch=None, announce=True):
+    def free_ports(self):
+        """Game ports a new server can get: 26900, 26910, ... (the range published by the container)."""
+        used = self.used_slots()
+        return [GAME_PORT_BASE + 10 * k for k in range(MAX_SERVERS) if k not in used]
+
+    def create(self, name, clone_from=None, branch=None, announce=True, port=None, clone_world=True):
         name = (name or "").strip()[:40]
         if not name:
             raise web.HTTPBadRequest(text="Enter a server name")
         if len(self.instances) >= MAX_SERVERS:
             raise web.HTTPConflict(text=f"Maximum is {MAX_SERVERS} servers")
+        if clone_from and clone_from not in self.instances:
+            raise web.HTTPNotFound(text="Server to clone not found")
+        if port:
+            try:
+                port = int(port)
+            except (TypeError, ValueError):
+                raise web.HTTPBadRequest(text="Invalid port")
+            if port not in self.free_ports():
+                raise web.HTTPConflict(text=f"Port {port} is not free - pick one of {', '.join(map(str, self.free_ports()))}")
+            k = (port - GAME_PORT_BASE) // 10
+        else:
+            k = self.free_slot()
+        if k is None:
+            raise web.HTTPConflict(text="No free port slot")
         base, n = slugify(name), 2
         iid = base
         while iid in self.instances or (INST_ROOT / iid).exists():
             iid, n = f"{base}-{n}", n + 1
-        k = self.free_slot()
         inst = Instance(self, iid, name)
-        if clone_from and clone_from in self.instances:
-            src = self.instances[clone_from]
+        src = self.instances.get(clone_from) if clone_from else None
+        if src:
             if src.cfg.exists():
                 shutil.copy2(src.cfg, inst.cfg)
             inst.settings = json.loads(json.dumps(src.settings))
@@ -93,7 +118,7 @@ class Hub:
         inst.save_settings()
         assign = {"ServerPort": str(GAME_PORT_BASE + 10 * k), "TelnetPort": str(TELNET_PORT_BASE + k),
                   "WebDashboardPort": str(WEB_PORT_BASE + k), "ServerName": name}
-        if not clone_from:
+        if not src:
             assign["GameName"] = slugify(name).replace("-", "_") or "Game"
         inst.save_pstate(assign=assign)
         if inst.cfg.exists():
@@ -103,9 +128,48 @@ class Hub:
         self.instances[iid] = inst
         self.order.append(iid)
         self.save_registry()
+        if src:
+            inst.busy = "Copying files..."
+            asyncio.create_task(self._clone_files(src, inst, clone_world))
         if announce:
-            inst.note(f"Server created: {name} (port {assign['ServerPort']})")
+            inst.note(f"Server created: {name} (port {assign['ServerPort']})" + (f", copy of {src.name}" if src else ""))
         return inst
+
+    async def _clone_files(self, src, inst, with_world=True):
+        """1:1 copy of everything that makes the server what it is: mods (enabled + disabled) with their
+        edited configs, mod metadata, admins/whitelist/bans, and (optionally) saves + generated worlds."""
+        async with inst.op_lock:
+            try:
+                if src.running() and with_world and src.tw:
+                    try:
+                        await src.command("saveworld", timeout=20, quiet=True)
+                    except web.HTTPException:
+                        pass
+                parts = ["Mods", "Mods_disabled"] + (["Saves", "GeneratedWorlds"] if with_world else [])
+
+                def copy():
+                    for p in parts:
+                        s = src.userdata / p
+                        if s.is_dir():
+                            shutil.copytree(s, inst.userdata / p, symlinks=True, dirs_exist_ok=True)
+                    if not with_world:          # admins / whitelist / bans live next to the saves
+                        adm = get_prop(src.cfg, "AdminFileName") or "serveradmin.xml"
+                        if (src.userdata / "Saves" / adm).is_file():
+                            (inst.userdata / "Saves").mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(src.userdata / "Saves" / adm, inst.userdata / "Saves" / adm)
+                    if src.mods.meta_file.exists():
+                        shutil.copy2(src.mods.meta_file, inst.mods.meta_file)
+                await asyncio.to_thread(copy)
+                inst.mods.meta = load_json(inst.mods.meta_file, {})
+                if with_world and src.pstate.get("saves_meta"):
+                    inst.save_pstate(saves_meta=json.loads(json.dumps(src.pstate["saves_meta"])))
+                inst.note(f"Copied from {src.name}: mods + mod configs" + (", worlds and saves" if with_world else "")
+                          + ", admins")
+            except Exception as e:
+                inst.note(f"Copying from {src.name} failed: {e!r}")
+            finally:
+                inst.busy = ""
+                inst.push_state()
 
     async def delete(self, iid):
         inst = self.get(iid)
@@ -166,7 +230,7 @@ class Hub:
                                "port": get_prop(i.cfg, "ServerPort"), "world": get_prop(i.cfg, "GameWorld"),
                                "version": i.game_version_label(), "branch": i.branch,
                                "notices": bool(i.notices)} for i in (self.instances[x] for x in self.order)],
-                "max": MAX_SERVERS, "panel": {"version": __version__, "update": self.panel_update, "repo": PANEL_REPO},
+                "max": MAX_SERVERS, "free_ports": self.free_ports(), "panel": {"version": __version__, "update": self.panel_update, "repo": PANEL_REPO},
                 "steam_busy": self.steam.busy, "steam_progress": self.steam.progress}
 
     # ---------------------------------------------------------- game updates

@@ -224,3 +224,18 @@ body:not([data-role=admin]) .admin-only, body[data-role=viewer] .op-only { displ
 button.busy { position: relative; color: transparent !important; pointer-events: none; }
 button.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--acc); border-radius: 50%; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* mods: batch upload, search / sort, per-mod config editor */
+.mods-bar { margin-top: 12px; gap: 8px; }
+.mods-bar input[type=search] { min-width: 220px; }
+tr.dim td { opacity: .6; }
+.upload-card { margin-top: 10px; }
+.progress.indeterminate > div { width: 30% !important; position: relative; animation: actslide 1.2s linear infinite; }
+dialog.wide { width: min(980px, 96vw); max-width: min(980px, 96vw); }
+dialog h4 { margin: 14px 0 6px; }
+.filelist { display: flex; flex-direction: column; gap: 4px; }
+.filelist .file { text-align: left; justify-content: flex-start; }
+textarea.editor { width: 100%; height: 55vh; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+.daylen-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.daylen-preview span { background: var(--bg2); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.daylen-preview span.ref { outline: 1px solid var(--acc); }
+.map-status td:first-child { color: var(--muted); padding-right: 14px; }

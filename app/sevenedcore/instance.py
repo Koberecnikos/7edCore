@@ -10,6 +10,7 @@ import shutil
 import signal
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import psutil
@@ -40,7 +41,19 @@ DEFAULT_SETTINGS = {
     "preset": "",                   # last applied difficulty preset (informational)
     "preset_keys": [],              # options the last preset changed (undone by the next preset)
     "preset_stack": [],             # applied presets in priority order [{"id", "seed", "tier"}]
+    # dynamic day length: time runs faster / slower with the number of players online
+    "daylen_dynamic": False,
+    "daylen_base": 0,               # real minutes per game day at the reference player count (0 = server setting)
+    "daylen_ref": 4,                # reference player count
+    "daylen_below": -10,            # time speed change in % per player below the reference (negative = slower)
+    "daylen_above": 10,             # ... per player above the reference (positive = faster)
+    "daylen_min": 10,               # limits for the resulting day length (minutes)
+    "daylen_max": 240,
+    "daylen_freeze": True,          # nobody online -> the clock stands still
+    "webmap_public": True,          # built-in web map viewable without logging in (web.map permission 2000)
 }
+DAYLEN_LIMITS = {"daylen_base": (0, 600), "daylen_ref": (0, 64), "daylen_below": (-90, 500), "daylen_above": (-90, 500),
+                 "daylen_min": (1, 600), "daylen_max": (1, 1440)}
 ACTIONS = ("start", "stop", "restart", "update_restart", "backup")
 
 
@@ -93,6 +106,7 @@ class Instance:
         self.ram_action_at = 0
         self.notices = {}
         self.pending, self.pending_what = None, ""
+        self.daylen_applied, self.freeze_at, self.time_sample, self.daylen_effective = None, None, None, None
 
     # ---------------------------------------------------------- basics
     @property
@@ -162,6 +176,9 @@ class Instance:
             "compat": self.compat_check(), "notices": self.notices,
             "ram_limit_gb": self.settings.get("ram_limit_gb"), "pending": self.pending_what,
             "preset": self.settings.get("preset"), "preset_stack": self.settings.get("preset_stack") or [],
+            "daylen": {"enabled": bool(self.settings.get("daylen_dynamic")), "applied": self.daylen_applied,
+                       "frozen": self.freeze_at is not None, "effective": self.daylen_effective,
+                       "configured": self.configured_daylen()},
         }
 
     # ---------------------------------------------------------- config
@@ -263,6 +280,7 @@ class Instance:
             self.started_at = now_ts()
             self.ready_noted = False
             self.run_version = None
+            self.daylen_applied, self.freeze_at, self.time_sample, self.daylen_effective = None, None, None, None
             self.players, self.gametime, self.meminfo = [], "", {}
             self.ram_over = 0
             self.set_state("starting")
@@ -314,6 +332,7 @@ class Instance:
             self.ready_noted = True
             self.note("Server is ready for players")
             self._track_save_version()
+            self.apply_map_permission()
 
     async def _telnet_loop(self, proc):
         while proc.returncode is None:
@@ -546,10 +565,10 @@ class Instance:
             try:
                 if tick % 3 == 0:
                     await self.refresh_players()
+                    await self.daylen_tick()
                 if tick % 6 == 1:
-                    for line in await self.command("gettime", timeout=3, quiet=True):
-                        if line.startswith("Day"):
-                            self.gametime = line.strip()
+                    if not self.settings.get("daylen_dynamic"):
+                        await self._game_time()
                     await self.refresh_mem()
                 self.push_state()
             except web.HTTPException:
@@ -578,6 +597,186 @@ class Instance:
             asyncio.create_task(later())
         else:
             self.note(f"Warning: RAM {gb:.1f} GB is over the {lim:g} GB limit")
+
+    # ---------------------------------------------------------- built-in web map
+    def admin_file(self):
+        return self.userdata / "Saves" / (get_prop(self.cfg, "AdminFileName") or "serveradmin.xml")
+
+    @staticmethod
+    def _outside_comments(text, rx, flags=0):
+        spans = [(m.start(), m.end()) for m in re.finditer(r"<!--.*?-->", text, re.S)]
+        return [m for m in re.finditer(rx, text, flags) if not any(a <= m.start() < b for a, b in spans)]
+
+    def map_permission(self):
+        """Permission level the web map needs (2000 = anyone, no login), None = game default (admins only)."""
+        f = self.admin_file()
+        if not f.exists():
+            return None
+        text = f.read_text(encoding="utf-8", errors="replace")
+        for m in self._outside_comments(text, r'<(?:module|permission)\s+(?:name|module|cmd)="web\.map"[^>]*>'):
+            lv = re.search(r'permission_level="(-?\d+)"', m.group(0))
+            if lv:
+                return int(lv.group(1))
+        return None
+
+    def set_map_permission(self, level):
+        """Write <module name="web.map" permission_level=".."/> into <webmodules> (V1+ serveradmin.xml).
+        level None removes it. Returns False if the file does not exist yet (the game creates it on first start)."""
+        f = self.admin_file()
+        if not f.exists():
+            return False
+        text = f.read_text(encoding="utf-8", errors="replace")
+        for m in reversed(self._outside_comments(text, r'[ \t]*<module\s+name="web\.map"[^>]*?(?:/>|>.*?</module>)[ \t]*\n?', re.S)):
+            text = text[:m.start()] + text[m.end():]
+        if level is not None:
+            mod = f'<module name="web.map" permission_level="{int(level)}" />'
+            empty = self._outside_comments(text, r"<webmodules\s*/>")
+            close = self._outside_comments(text, r"</webmodules>")
+            end = self._outside_comments(text, r"</adminTools>")
+            if empty:
+                m = empty[0]
+                text = text[:m.start()] + f"<webmodules>\n\t\t{mod}\n\t</webmodules>" + text[m.end():]
+            elif close:
+                m = close[0]
+                text = text[:m.start()] + f"\t{mod}\n\t</webmodules>" + text[m.end():]
+            elif end:
+                m = end[0]
+                text = text[:m.start()] + f"\t<webmodules>\n\t\t{mod}\n\t</webmodules>\n</adminTools>" + text[m.end():]
+            else:
+                raise web.HTTPConflict(text=f"{f.name} has an unknown format - add the web.map permission by hand")
+        try:
+            ET.fromstring(text.encode("utf-8"))
+        except ET.ParseError as e:
+            raise web.HTTPConflict(text=f"{f.name} would become invalid ({e}) - not changed")
+        shutil.copy2(f, f.with_name(f.name + ".bak"))
+        tmp = f.with_name(f.name + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, f)
+        return True
+
+    def apply_map_permission(self):
+        if get_prop(self.cfg, "WebDashboardEnabled") != "true":
+            return
+        want = 2000 if self.settings.get("webmap_public", True) else None
+        if self.map_permission() != want:
+            try:
+                if self.set_map_permission(want):
+                    self.note("Web map: " + ("anyone with the link can view it" if want else "only logged-in admins"))
+            except web.HTTPException as e:
+                self.note(f"Web map permission: {e.text}")
+
+    def world_size(self):
+        """Edge length of the active world in blocks (map_info.xml), for rendering the whole web map."""
+        save = self.active_save()
+        world = save.split("/")[0] if save else get_prop(self.cfg, "GameWorld")
+        for base in (self.userdata / "GeneratedWorlds", self.server_dir / "Data" / "Worlds"):
+            mi = base / world / "map_info.xml"
+            if mi.exists():
+                m = re.search(r'name="HeightMapSize"\s+value="(\d+)', mi.read_text(errors="replace"))
+                if m:
+                    return int(m.group(1))
+        try:
+            return int(get_prop(self.cfg, "WorldGenSize") or 0) or None
+        except ValueError:
+            return None
+
+    async def webmap_check(self):
+        import aiohttp
+        port = get_prop(self.cfg, "WebDashboardPort")
+        res = {"enabled": get_prop(self.cfg, "WebDashboardEnabled") == "true",
+               "rendering": get_prop(self.cfg, "EnableMapRendering") == "true",
+               "port": port, "permission": self.map_permission(), "admin_file": self.admin_file().exists(),
+               "public": bool(self.settings.get("webmap_public", True)), "running": self.running(), "reachable": None}
+        if self.running() and res["enabled"] and port:
+            try:
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as s:
+                    async with s.get(f"http://127.0.0.1:{port}/") as r:
+                        res["reachable"], res["http"] = r.status < 500, r.status
+            except Exception as e:
+                res["reachable"], res["error"] = False, type(e).__name__
+        return res
+
+    # ---------------------------------------------------------- dynamic day length
+    def configured_daylen(self):
+        """Day length (real minutes per game day) the server starts with: SandboxCode on V3+, property before."""
+        try:
+            props = {n: v for n, v, _ in read_config_props(self.cfg)}
+            if "SandboxCode" in props:
+                from . import sandbox
+                if "DayNightLength" in sandbox.OPTIONS:
+                    return int(sandbox.values("DayNightLength")[sandbox.full(props["SandboxCode"])["DayNightLength"]])
+            return int(float(props.get("DayNightLength") or 60))
+        except (ValueError, KeyError, IndexError, OSError):
+            return 60
+
+    def daylen_target(self, players):
+        st = self.settings
+        base = int(st.get("daylen_base") or 0) or self.configured_daylen()
+        ref = int(st.get("daylen_ref") or 0)
+        if players >= ref:
+            speed = 1 + float(st.get("daylen_above") or 0) / 100 * (players - ref)
+        else:
+            speed = 1 + float(st.get("daylen_below") or 0) / 100 * (ref - players)
+        length = round(base / max(speed, 0.05))
+        lo, hi = int(st.get("daylen_min") or 1), int(st.get("daylen_max") or 1440)
+        return max(min(lo, hi), min(max(lo, hi), length))
+
+    @staticmethod
+    def _parse_time(line):
+        m = re.match(r"\s*Day\s+(\d+),\s*(\d+):(\d+)", line or "")
+        return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+    async def _game_time(self):
+        for line in await self.command("gettime", timeout=3, quiet=True):
+            if line.startswith("Day"):
+                self.gametime = line.strip()
+                return self._parse_time(line)
+        return None
+
+    async def _set_daylen(self, minutes):
+        await self.command(f"setgamepref DayNightLength {int(minutes)}", timeout=3, quiet=True)
+        self.daylen_applied = int(minutes)
+        self.time_sample, self.daylen_effective = None, None
+
+    async def daylen_tick(self):
+        st = self.settings
+        if not st.get("daylen_dynamic"):
+            if self.daylen_applied is not None:           # switched off: back to the server's own setting
+                await self._set_daylen(self.configured_daylen())
+                self.daylen_applied = None
+                self.note("Dynamic day length off - back to the server setting")
+            self.freeze_at = None
+            return
+        n = len(self.players)
+        now = await self._game_time()
+        if n == 0 and st.get("daylen_freeze"):
+            if now is None:
+                return
+            if self.freeze_at is None:
+                self.freeze_at = now
+                self.note(f"Nobody online - game time paused at day {now[0]}, {now[1]:02d}:{now[2]:02d}")
+            elif now != self.freeze_at:
+                d, h, m = self.freeze_at
+                await self.command(f"settime {d} {h} {m}", timeout=3, quiet=True)
+            return
+        if self.freeze_at is not None:
+            self.freeze_at = None
+            self.time_sample = None
+            self.note("Players online - game time runs again")
+        target = self.daylen_target(n)
+        if target != self.daylen_applied:
+            await self._set_daylen(target)
+            self.note(f"Day length {target} min ({n} player{'s' if n != 1 else ''} online)")
+            return
+        if now:                                            # measure how fast the clock really runs
+            t = time.monotonic()
+            gm = now[0] * 1440 + now[1] * 60 + now[2]
+            if self.time_sample is None:
+                self.time_sample = (t, gm)
+            elif t - self.time_sample[0] >= 120:
+                rate = (gm - self.time_sample[1]) / ((t - self.time_sample[0]) / 60)   # game min per real min
+                self.daylen_effective = round(1440 / rate) if rate > 0 else None
+                self.time_sample = (t, gm)
 
     async def refresh_players(self):
         out = await self.command("lp", timeout=3, quiet=True)

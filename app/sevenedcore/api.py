@@ -9,10 +9,12 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
+import aiohttp
+import aiohttp.http_exceptions
 from aiohttp import web
 
 from . import selfupdate, versions
-from .instance import DEFAULT_SETTINGS, CompatError, validate_schedule
+from .instance import DAYLEN_LIMITS, DEFAULT_SETTINGS, CompatError, validate_schedule
 from .configmeta import catalog
 from . import modlets, presets, sandbox
 from .steam import check_branch
@@ -209,7 +211,8 @@ async def h_create(request):
     branch = d.get("game_version") or None
     if branch:
         check_branch(branch)
-    inst = HUB.create(str(d.get("name", "")), clone_from=d.get("clone_from") or None, branch=branch)
+    inst = HUB.create(str(d.get("name", "")), clone_from=d.get("clone_from") or None, branch=branch,
+                      port=d.get("port") or None, clone_world=d.get("clone_world", True) is not False)
     if not HUB.steam.installed(inst.branch):
         HUB.steam.queue(inst.branch)
     return ok(id=inst.id)
@@ -439,6 +442,10 @@ async def h_settings_set(request):
             v = str(v).strip()
         if k in CHOICES and v not in CHOICES[k]:
             raise web.HTTPBadRequest(text=f"{k}: one of {', '.join(CHOICES[k])}")
+        if k in DAYLEN_LIMITS and not DAYLEN_LIMITS[k][0] <= v <= DAYLEN_LIMITS[k][1]:
+            raise web.HTTPBadRequest(text=f"{k}: {DAYLEN_LIMITS[k][0]} - {DAYLEN_LIMITS[k][1]}")
+        if isinstance(base, list):
+            continue
         i.settings[k] = v
     i.save_settings()
     i.push_state()
@@ -834,24 +841,81 @@ async def h_import(request):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ------------------------------------------------------------------ built-in web map
+async def h_webmap(request):
+    return web.json_response(await inst_of(request).webmap_check())
+
+
+async def h_webmap_set(request):
+    i = inst_of(request)
+    d = await request.json()
+    changes = {}
+    if "enabled" in d:
+        on = "true" if d["enabled"] else "false"
+        changes = {"WebDashboardEnabled": on, "EnableMapRendering": on}
+    if "public" in d:
+        i.settings["webmap_public"] = bool(d["public"])
+        i.save_settings()
+    if changes:
+        write_config_props(i.cfg, changes)
+    i.apply_map_permission()
+    if changes and i.running():
+        i.note("Web map setting changed - restart the server to apply it")
+    i.push_state()
+    return ok(**await i.webmap_check())
+
+
+async def h_webmap_render(request):
+    i = inst_of(request)
+    if not i.tw:
+        raise web.HTTPConflict(text="The server must be running")
+    if get_prop(i.cfg, "EnableMapRendering") != "true":
+        raise web.HTTPConflict(text="Map rendering is off - enable the web map and restart first")
+    size = i.world_size()
+    if not size:
+        raise web.HTTPConflict(text="World size unknown")
+    h = size // 2
+    out = await i.command(f"visitmap {-h} {-h} {h - 1} {h - 1}", timeout=4)
+    return ok(size=size, output=out[-5:])
+
+
 # ------------------------------------------------------------------ mods
 async def h_mods(request):
     i = inst_of(request)
-    return web.json_response({"mods": await asyncio.to_thread(i.mods.list), "path": rel(i.mods.on),
+    mods = await asyncio.to_thread(i.mods.list)
+    return web.json_response({"mods": mods, "path": rel(i.mods.on),
                               "game": i.game_version_label(), "running": i.state in ("running", "starting"),
-                              "policy": i.settings["mod_updates"]})
+                              "policy": i.settings["mod_updates"],
+                              "total": {"count": len(mods), "enabled": sum(1 for m in mods if m["enabled"]),
+                                        "size": sum(m.get("size") or 0 for m in mods)}})
 
 
 async def h_mods_upload(request):
+    """One request = one batch of ZIPs. Nothing is installed until every file has arrived complete and
+    passed the check, so a cancelled / broken upload never leaves a half-installed mod behind."""
+    from .mods import check_zip, parse_source
     i = inst_of(request)
     tmp = Path(tempfile.mkdtemp(dir=i.dir, prefix=".up_"))
     try:
-        files, fields = await read_upload(request, tmp)
-        src = fields.get("source", "").strip()
-        report = []
+        try:
+            files, fields = await read_upload(request, tmp)
+        except (ConnectionError, asyncio.CancelledError, aiohttp.ClientPayloadError, aiohttp.http_exceptions.HttpProcessingError):
+            i.note("Mod upload cancelled - nothing was installed")
+            raise web.HTTPBadRequest(text="Upload cancelled")
+        if not files:
+            raise web.HTTPBadRequest(text="No files")
         for f in files:
-            from .mods import parse_source
-            report += await i.mods.install_zip(f, source=parse_source(src) if src else None)
+            await asyncio.to_thread(check_zip, f)
+        src = fields.get("source", "").strip()
+        source = parse_source(src) if src and len(files) == 1 else None
+
+        async def install():
+            rep = []
+            for f in files:
+                rep += await i.mods.install_zip(f, source=source)
+            return rep
+        # the client may disconnect now (cancel) - the install itself must still finish in one piece
+        report = await asyncio.shield(asyncio.ensure_future(install()))
         i.note("Mods installed: " + ", ".join(r["folder"] for r in report) + " - applies after restart")
         return ok(report=report)
     finally:
@@ -891,7 +955,29 @@ async def h_mod_op(request):
     if op == "source":
         i.mods.set_source(folder, str((await request.json()).get("source", "")))
         return ok()
+    if op == "file":
+        d = await request.json()
+        if d.get("reset"):
+            i.mods.reset_file(folder, str(d.get("path", "")))
+            i.note(f"Mod config reset to the original: {folder}/{d.get('path')}")
+        else:
+            i.mods.write_file(folder, str(d.get("path", "")), d.get("content", ""))
+            i.note(f"Mod config saved: {folder}/{d.get('path')}" + (" - applies after restart" if i.running() else ""))
+        return ok(files=i.mods.files(folder))
     raise web.HTTPNotFound()
+
+
+async def h_mod_files(request):
+    i = inst_of(request)
+    folder = request.match_info["folder"]
+    return web.json_response({"files": await asyncio.to_thread(i.mods.files, folder), "running": i.running()})
+
+
+async def h_mod_file(request):
+    i = inst_of(request)
+    folder = request.match_info["folder"]
+    path = request.query.get("path", "")
+    return web.json_response({"path": path, "content": await asyncio.to_thread(i.mods.read_file, folder, path)})
 
 
 async def h_mods_check_all(request):
@@ -1141,10 +1227,15 @@ def routes(app):
     r.add_post(p + "/worlds/select", h_world_select)
     r.add_post(p + "/worlds/delete", h_world_delete)
     r.add_post(p + "/worlds/import", h_import)
+    r.add_get(p + "/webmap", h_webmap)
+    r.add_post(p + "/webmap", h_webmap_set)
+    r.add_post(p + "/webmap/render", h_webmap_render)
     r.add_get(p + "/mods", h_mods)
     r.add_post(p + "/mods/upload", h_mods_upload)
     r.add_post(p + "/mods/install", h_mods_install)
     r.add_post(p + "/mods/check", h_mods_check_all)
+    r.add_get(p + "/mods/{folder}/files", h_mod_files)
+    r.add_get(p + "/mods/{folder}/file", h_mod_file)
     r.add_post(p + "/mods/{folder}/{op}", h_mod_op)
     r.add_get(p + "/backups", h_backups)
     r.add_post(p + "/backups/{op}", h_backups_op)

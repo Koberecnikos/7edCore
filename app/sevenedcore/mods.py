@@ -119,7 +119,7 @@ def sha(path):
 
 
 def manifest(d: Path):
-    return {str(p.relative_to(d)): sha(p) for p in d.rglob("*") if p.is_file()}
+    return {str(p.relative_to(d)): sha(p) for p in d.rglob("*") if p.is_file() and not p.name.endswith(".orig")}
 
 
 def carry_over(old: Path, new: Path, baseline: dict):
@@ -132,7 +132,7 @@ def carry_over(old: Path, new: Path, baseline: dict):
         if not p.is_file():
             continue
         rp = str(p.relative_to(old))
-        if baseline.get(rp) == sha(p):
+        if rp.endswith(".orig") or baseline.get(rp) == sha(p):
             continue                          # untouched by the user
         target = new / rp
         author = sha(target) if target.exists() else None
@@ -165,6 +165,52 @@ def mod_info(d: Path, enabled: bool):
     else:
         info["description"] = "(ModInfo.xml missing)"
     return info
+
+
+def check_zip(zpath: Path):
+    """Reject a broken / truncated archive or one without a mod, before anything is installed."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(zpath) as z:
+            bad = z.testzip()
+            if bad:
+                raise web.HTTPBadRequest(text=f"{Path(zpath).name}: damaged file inside the ZIP ({bad})")
+            if not any(Path(n).name.lower() == "modinfo.xml" for n in z.namelist()):
+                raise web.HTTPBadRequest(text=f"{Path(zpath).name}: no ModInfo.xml - is this a 7 Days to Die mod?")
+    except zipfile.BadZipFile:
+        raise web.HTTPBadRequest(text=f"{Path(zpath).name}: not a valid ZIP (incomplete upload?)")
+
+
+CONFIG_EXT = {".xml", ".json", ".txt", ".ini", ".cfg", ".conf", ".yaml", ".yml", ".toml", ".properties", ".csv", ".lua"}
+SETTINGS_HINT = re.compile(r"(config|setting|option|pref|server)", re.I)
+
+
+def config_files(d: Path):
+    """Text files of a mod a server owner may want to edit.
+    kind: settings = the mod's own settings file(s); patch = XML patches of game data (Config/*.xml); other."""
+    out = []
+    for p in sorted(d.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in CONFIG_EXT or p.name.endswith((".new", ".bak")):
+            continue
+        rp = p.relative_to(d)
+        low = p.name.lower()
+        if low == "modinfo.xml" or low.startswith(("readme", "license", "licence", "changelog", "credits")) or (rp.parts[0].lower() in ("resources", "textures", "prefabs", "uiatlases")):
+            continue
+        try:
+            size = p.stat().st_size
+        except OSError:
+            continue
+        if size > 2 << 20:
+            continue
+        top = rp.parts[0].lower()
+        if top == "config" and len(rp.parts) > 1:
+            kind = "patch" if rp.parts[1].lower() != "localization.txt" and p.suffix.lower() == ".xml" else "other"
+        else:
+            kind = "settings" if SETTINGS_HINT.search(p.name) or len(rp.parts) == 1 else "other"
+        out.append({"path": str(rp), "size": size, "kind": kind})
+    order = {"settings": 0, "other": 1, "patch": 2}
+    out.sort(key=lambda f: (order[f["kind"]], f["path"].lower()))
+    return out
 
 
 # ------------------------------------------------------------------ per-server manager
@@ -371,6 +417,70 @@ class Mods:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(p), str(target))
         return target.parent == self.on
+
+    # ---------------------------------------------------------- the mod's own config files
+    def _file(self, folder, relpath):
+        d = self.path(folder)
+        if not d:
+            raise web.HTTPNotFound(text="Mod not found")
+        f = (d / str(relpath)).resolve()
+        if d.resolve() not in f.parents or not f.is_file():
+            raise web.HTTPNotFound(text="File not found")
+        if f.suffix.lower() not in CONFIG_EXT:
+            raise web.HTTPBadRequest(text="Only text config files can be edited here")
+        return d, f
+
+    def files(self, folder):
+        d = self.path(folder)
+        if not d:
+            raise web.HTTPNotFound(text="Mod not found")
+        base = (self.meta.get(d.name) or {}).get("manifest") or {}
+        out = config_files(d)
+        for f in out:
+            f["edited"] = bool(base.get(f["path"])) and base[f["path"]] != sha(d / f["path"])
+            f["has_original"] = (d / (f["path"] + ".orig")).exists()
+        return out
+
+    def read_file(self, folder, relpath):
+        _d, f = self._file(folder, relpath)
+        raw = f.read_bytes()
+        if b"\x00" in raw[:8192]:
+            raise web.HTTPUnsupportedMediaType(text="Binary file")
+        return raw.decode("utf-8", "replace")
+
+    def write_file(self, folder, relpath, content):
+        d, f = self._file(folder, relpath)
+        data = str(content).replace("\r\n", "\n")
+        if f.suffix.lower() == ".xml":
+            try:
+                ET.fromstring(data.encode("utf-8"))
+            except ET.ParseError as e:
+                raise web.HTTPBadRequest(text=f"Not saved - the XML is not valid: {e}")
+        elif f.suffix.lower() == ".json":
+            import json
+            try:
+                json.loads(data)
+            except ValueError as e:
+                raise web.HTTPBadRequest(text=f"Not saved - the JSON is not valid: {e}")
+        orig = f.with_name(f.name + ".orig")
+        if not orig.exists():                 # first edit: keep the author's version for "reset"
+            shutil.copy2(f, orig)
+        tmp = f.with_name(f.name + ".tmp")
+        tmp.write_text(data, encoding="utf-8")
+        os.replace(tmp, f)
+        m = self.meta.setdefault(d.name, {})
+        if not m.get("manifest"):             # make the edit detectable -> kept on mod updates
+            man = manifest(d)
+            man[str(f.relative_to(d))] = sha(orig)
+            m["manifest"] = {k: v for k, v in man.items() if not k.endswith(".orig")}
+            self.save()
+
+    def reset_file(self, folder, relpath):
+        _d, f = self._file(folder, relpath)
+        orig = f.with_name(f.name + ".orig")
+        if not orig.exists():
+            raise web.HTTPNotFound(text="No original saved for this file")
+        os.replace(orig, f)
 
     def delete(self, folder):
         p = self.path(folder)

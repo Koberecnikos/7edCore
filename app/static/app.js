@@ -202,7 +202,7 @@ function selectServer(id, tab = "overview") {
   openEvents();
   openTab(tab);
 }
-$("#btnNew").onclick = newServerDialog;
+$("#btnNew").onclick = () => newServerDialog();
 $("#btnVersions").onclick = () => showPage(pageVersions);
 $("#btnPanel").onclick = () => showPage(pagePanel);
 $(".brand").onclick = (e) => { e.preventDefault(); showPage(null); };
@@ -328,7 +328,8 @@ function renderOverview() {
   const compat = ["same", "new"].includes(c.level) ? "" : `<div class="alert ${c.level} wide">${esc(compatText(c))}</div>`;
   $("#tab-overview").innerHTML = `<div class="grid">${top}${compat}
     ${card(t("ov.players"), st.state === "running" ? `${(st.players || []).length} / ${esc(w.ServerMaxPlayerCount || "?")}` : "–", esc((st.players || []).map((p) => p.name).join(", ")))}
-    ${card(t("ov.time"), esc(st.gametime || "–"), st.started_at ? esc(t("ov.up", { d: fmtDur(Date.now() / 1000 - st.started_at) })) : "")}
+    ${card(t("ov.time"), esc(st.gametime || "–"), [st.started_at ? esc(t("ov.up", { d: fmtDur(Date.now() / 1000 - st.started_at) })) : "",
+      st.daylen?.enabled && live() ? (st.daylen.frozen ? "⏸ " + esc(t("dl.paused")) : st.daylen.applied ? "☀ " + esc(t("dl.short", { n: st.daylen.applied })) : "") : ""].filter(Boolean).join(" · "))}
     ${card(t("ov.world"), esc(w.GameWorld || "–"), esc(w.GameName || ""))}
     ${card(t("ov.version"), esc(g.version || "?"), esc(g.branch + (g.build ? " · build " + g.build : "")))}
     ${card(t("ov.cpu"), live() && s.srv_cpu != null ? s.srv_cpu + " %" : "–", s.host_cpu != null ? `${esc(t("ov.machine"))} ${s.host_cpu} % · load ${(s.load || []).map((x) => x.toFixed(2)).join(" ")}` : "")}
@@ -355,8 +356,9 @@ function quickActions() {
       <button data-q="say"${run ? "" : " disabled"}>💬 ${t("qa.say")}</button>
       <button data-q="check">🔎 ${t("qa.check")}</button>
       <label class="check admin-only" title="${esc(t("as.hint"))}"><input type="checkbox" id="qaAutostart"${(st.autostart || "last") !== "off" ? " checked" : ""}> ${esc(t("as.label"))}</label>
-      ${st.web_map ? `<a class="btn" href="${esc(webMapUrl(st))}" target="_blank" rel="noopener"><button type="button"${run ? "" : ` disabled title="${esc(t("map.offline"))}"`}>🗺 ${t("map.open")}</button></a>`
-        : `<button data-q="webmap" class="admin-only" title="${esc(t("map.enableHint"))}">🗺 ${t("map.enable")}</button>`}
+      ${st.web_map ? `<a class="btn" href="${esc(webMapUrl(st))}" target="_blank" rel="noopener"><button type="button"${run ? "" : ` disabled title="${esc(t("map.offline"))}"`}>🗺 ${t("map.open")}</button></a>` : ""}
+      <button data-q="webmap" title="${esc(t("map.enableHint"))}">🗺 ${st.web_map ? t("map.settings") : t("map.enable")}</button>
+      <button data-q="dup" class="admin-only">⧉ ${t("new.dup")}</button>
     </div>
     <div class="row">
       <label class="small">${t("qa.warnIn")} <select id="qaMin">${[["0", t("qa.now")], ["1", "1 " + t("unit.min")], ["5", "5 " + t("unit.min")], ["10", "10 " + t("unit.min")], ["15", "15 " + t("unit.min")], ["30", "30 " + t("unit.min")]].map(([v, l]) => `<option value="${v}"${v === QA_MIN ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
@@ -374,7 +376,8 @@ function quickActions() {
   $$("[data-q]", box).forEach((b) => b.onclick = async () => {
     const q = b.dataset.q, minutes = Number(QA_MIN);
     if (q === "backup") return act(() => api("POST", sp("/backups/create")), t("ok.queued"));
-    if (q === "webmap") { if (await act(() => api("POST", sp("/config"), { changes: { WebDashboardEnabled: "true", EnableMapRendering: "true" } }), t("map.enabled"))) S.status.web_map = true; renderOverview(); return; }
+    if (q === "webmap") return webMapDialog();
+    if (q === "dup") return newServerDialog(CUR);
     if (q === "say") { const m = await promptDlg(t("qa.say"), t("qa.sayPh")); if (m) act(() => api("POST", sp("/quick/say"), { message: m }), t("ok.saved")); return; }
     if (q === "update_game" && n.game_update?.kind === "major" && !await confirmDlg(t("kind.major"))) return;
     b.disabled = true;
@@ -383,6 +386,36 @@ function quickActions() {
     b.disabled = false;
   });
   return box;
+}
+
+async function webMapDialog() {
+  let d = await act(() => api("GET", sp("/webmap")));
+  if (!d) return;
+  const body = document.createElement("div");
+  const yes = (v) => v ? `<span class="ok">✔</span>` : `<span class="err">✘</span>`;
+  const draw = () => {
+    const url = webMapUrl({ ports: { web: d.port } });
+    const prob = !d.enabled ? t("map.p.off") : d.running && d.reachable === false ? t("map.p.unreach", { p: d.port }) : d.public && d.permission !== 2000 ? (d.admin_file ? t("map.p.perm") : t("map.p.noadmin")) : "";
+    body.innerHTML = `<p class="muted small">${esc(t("map.hint"))}</p>
+      <table class="map-status">
+        <tr><td>${t("map.s.enabled")}</td><td>${yes(d.enabled && d.rendering)}</td></tr>
+        <tr><td>${t("map.s.port")}</td><td>${esc(d.port)} ${d.enabled ? `· <a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>` : ""}</td></tr>
+        <tr><td>${t("map.s.access")}</td><td>${d.permission === 2000 ? esc(t("map.s.public")) : esc(t("map.s.login"))}</td></tr>
+        <tr><td>${t("map.s.reach")}</td><td>${d.running ? (d.reachable ? yes(true) + ` HTTP ${d.http}` : yes(false) + " " + esc(d.error || "")) : esc(t("map.offline"))}</td></tr>
+      </table>
+      ${prob ? `<div class="alert downgrade" style="margin-top:10px">${esc(prob)}</div>` : ""}
+      <div class="field admin-only" style="margin-top:12px"><label class="check"><input type="checkbox" id="wmOn"${d.enabled ? " checked" : ""}> ${esc(t("map.s.enable"))}</label>
+        <label class="check"><input type="checkbox" id="wmPub"${d.public ? " checked" : ""}> ${esc(t("map.s.publicChk"))}</label>
+        <div class="hint">${esc(t("map.s.publicHint"))}</div></div>
+      <div class="row op-only"><button type="button" id="wmRender"${d.running && d.enabled ? "" : " disabled"}>🧭 ${t("map.render")}</button><span class="muted small sp">${esc(t("map.renderHint"))}</span></div>`;
+    const set = async (o) => { const r = await act(() => api("POST", sp("/webmap"), o), t(d.running && "enabled" in o ? "map.restart" : "ok.saved")); if (r) { d = r; S.status.web_map = r.enabled; draw(); } };
+    $("#wmOn", body).onchange = (e) => set({ enabled: e.target.checked, public: $("#wmPub", body).checked });
+    $("#wmPub", body).onchange = (e) => set({ public: e.target.checked });
+    $("#wmRender", body).onclick = async () => { if (await act(() => api("POST", sp("/webmap/render")), t("map.rendering"))) $("#wmRender", body).disabled = true; };
+  };
+  draw();
+  await dialog(t("map.title"), body, t("act.close"), false, "");
+  renderOverview();
 }
 
 // ------------------------------------------------------------------ players
@@ -720,11 +753,42 @@ async function importConfigDialog() {
   if (r) { toast(t("cx.done", { p: r.imported.join(", ") })); loadSettings(); }
 }
 // ------------------------------------------------------------------ mods
+let MODS = null, MSORT = "name", MDESC = false, MQ = "", MUP = null;
 async function loadMods() {
   const el = $("#tab-mods");
   const d = await act(() => api("GET", sp("/mods")));
   if (!d) return;
+  MODS = d;
+  el.innerHTML = `<p class="muted">${esc(t("mods.hint"))} <span class="small">${esc(t("mods.eac"))}</span></p>
+    <div class="row" style="margin-bottom:12px"><button class="primary admin-only" id="mZip">${t("mods.addZip")}</button>
+      <input id="mUrl" class="admin-only" placeholder="${esc(t("mods.urlPh"))}" style="flex:1;min-width:260px"><button class="admin-only" id="mUrlBtn">${t("mods.addUrl")}</button>
+      <button id="mCheck">${t("mods.checkAll")}</button></div>
+    <div class="drop admin-only" id="mDrop">${esc(t("mods.drop"))}</div>
+    <div id="mUpload"></div>
+    <div class="row mods-bar"><b id="mTotal"></b><span class="sp"></span>
+      <input id="mSearch" type="search" placeholder="🔍 ${esc(t("mods.search"))}" value="${esc(MQ)}">
+      <label class="small">${t("mods.sort")} <select id="mSort">${["name", "size", "installed", "status"].map((k) => `<option value="${k}"${MSORT === k ? " selected" : ""}>${esc(t("mods.sort." + k))}</option>`).join("")}</select></label>
+      <button class="small" id="mDir" title="${esc(t("mods.dir"))}">${MDESC ? "↓" : "↑"}</button></div>
+    <div id="mList"></div>`;
+  renderModList();
+  renderUpload();
+  $("#mZip").onclick = () => { const f = $("#filePick"); f.accept = ".zip"; f.multiple = true; f.value = ""; f.onchange = () => { f.multiple = false; if (f.files.length) uploadMods([...f.files]); }; f.click(); };
+  const dz = $("#mDrop");
+  dz.ondragover = (e) => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("over"); const fs = [...e.dataTransfer.files]; if (fs.length) uploadMods(fs); };
+  $("#mUrlBtn").onclick = async () => { const v = $("#mUrl").value.trim(); if (v && await act(() => api("POST", sp("/mods/install"), { source: v }), t("ok.saved"))) loadMods(); };
+  $("#mCheck").onclick = async () => { $("#mCheck").disabled = true; await act(() => api("POST", sp("/mods/check"))); loadMods(); };
+  $("#mSearch").oninput = (e) => { MQ = e.target.value; renderModList(); };
+  $("#mSort").onchange = (e) => { MSORT = e.target.value; renderModList(); };
+  $("#mDir").onclick = (e) => { MDESC = !MDESC; e.target.textContent = MDESC ? "↓" : "↑"; renderModList(); };
+}
+function renderModList() {
+  const d = MODS, el = $("#mList");
+  if (!d || !el) return;
   const gv = d.game || "?";
+  const tot = d.total || { count: d.mods.length, enabled: d.mods.filter((m) => m.enabled).length, size: d.mods.reduce((a, m) => a + (m.size || 0), 0) };
+  $("#mTotal").textContent = t("mods.total", { n: tot.count, e: tot.enabled, s: fmtBytes(tot.size) });
   const compatTag = (c) => c ? `<span class="tag ${c === "yes" ? "yes" : c === "no" ? "no" : "warnt"}">${esc(t("mods.compat." + c, { v: gv }))}</span>` : "";
   const checkInfo = (m) => {
     const c = m.check;
@@ -737,25 +801,21 @@ async function loadMods() {
     return c.update ? `<span class="warn small">${esc(t("mods.latest", { v: c.latest }))}</span> ${compatTag(c.compat)}` + (c.manual ? ` <a href="${esc(c.url)}" target="_blank" rel="noopener" class="small">${esc(t("mods.manual"))}</a>` : "")
       : `<span class="ok small">${esc(t("mods.uptodate"))}</span>`;
   };
-  el.innerHTML = `<p class="muted">${esc(t("mods.hint"))} <span class="small">${esc(t("mods.eac"))}</span></p>
-    <div class="row" style="margin-bottom:12px"><button class="primary" id="mZip">${t("mods.addZip")}</button>
-      <input id="mUrl" placeholder="${esc(t("mods.urlPh"))}" style="flex:1;min-width:260px"><button id="mUrlBtn">${t("mods.addUrl")}</button>
-      <button id="mCheck">${t("mods.checkAll")}</button></div>
-    <div class="drop" id="mDrop">ZIP ⤓</div>
-    ${d.mods.length ? `<table style="margin-top:12px"><tr><th>${t("mods.title")}</th><th>${t("mods.version")}</th><th>${t("mods.source")}</th><th></th></tr>
-    ${d.mods.map((m, i) => `<tr><td><b>${esc(m.name)}</b> ${m.enabled ? "" : `<span class="tag">${t("mods.disabled")}</span>`}<div class="muted small">${esc(m.folder)} · ${fmtBytes(m.size)}${m.author ? " · " + esc(m.author) : ""}</div><div class="small">${esc(m.description).slice(0, 160)}</div></td>
+  const q = MQ.trim().toLowerCase();
+  const key = { name: (m) => m.name.toLowerCase(), size: (m) => m.size || 0, installed: (m) => m.installed_at || 0, status: (m) => (m.enabled ? 0 : 1) + (m.check?.update ? -2 : 0) }[MSORT];
+  const rows = d.mods.map((m, i) => ({ m, i }))
+    .filter(({ m }) => !q || [m.name, m.folder, m.author, m.description, m.version].some((x) => String(x || "").toLowerCase().includes(q)))
+    .sort((a, b) => { const x = key(a.m), y = key(b.m); return (x < y ? -1 : x > y ? 1 : a.m.name.localeCompare(b.m.name)) * (MDESC ? -1 : 1); });
+  el.innerHTML = !d.mods.length ? `<p class="empty">${esc(t("mods.none"))}</p>` : !rows.length ? `<p class="empty">${esc(t("mods.noMatch"))}</p>`
+    : `<table style="margin-top:8px"><tr><th>${t("mods.title")}</th><th>${t("mods.version")}</th><th>${t("mods.source")}</th><th></th></tr>
+    ${rows.map(({ m, i }) => `<tr${m.enabled ? "" : ' class="dim"'}><td><b>${esc(m.name)}</b> ${m.enabled ? "" : `<span class="tag">${t("mods.disabled")}</span>`}<div class="muted small">${esc(m.folder)} · ${fmtBytes(m.size)}${m.author ? " · " + esc(m.author) : ""}${m.installed_at ? " · " + esc(fmtTime(m.installed_at)) : ""}</div><div class="small">${esc(m.description).slice(0, 160)}</div></td>
       <td>${esc(m.version || "–")}${m.release ? `<div class="muted small">${esc(m.release)}</div>` : ""} ${compatTag(m.compat)}</td>
       <td>${m.source ? `<span class="small">${esc(m.source.url || m.source.repo || "")}</span>` : ""}<div>${checkInfo(m)}</div></td>
-      <td class="row"><button class="small" data-src="${i}">${t("mods.source")}</button>${m.source ? `<button class="small" data-chk="${i}">${t("mods.find")}</button>` : ""}
+      <td class="admin-only"><div class="row"><button class="small" data-cfg="${i}">⚙ ${t("mods.configure")}</button><button class="small" data-src="${i}">${t("mods.source")}</button>${m.source ? `<button class="small" data-chk="${i}">${t("mods.find")}</button>` : ""}
         ${m.check?.update && !m.check.manual ? `<button class="small primary" data-upd="${i}">${t("act.update")}</button>` : ""}
-        <button class="small" data-tog="${i}">${m.enabled ? t("act.disable") : t("act.enable")}</button><button class="small danger" data-del="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
-    : `<p class="empty">${esc(t("mods.none"))}</p>`}`;
-  const up = async (file) => { const fd = new FormData(); fd.append("file", file); if (await act(() => api("POST", sp("/mods/upload"), fd), t("ok.saved"))) loadMods(); };
-  $("#mZip").onclick = () => pickFile(".zip", up);
-  dropZone($("#mDrop"), up);
-  $("#mUrlBtn").onclick = async () => { const v = $("#mUrl").value.trim(); if (v && await act(() => api("POST", sp("/mods/install"), { source: v }), t("ok.saved"))) loadMods(); };
-  $("#mCheck").onclick = async () => { $("#mCheck").disabled = true; await act(() => api("POST", sp("/mods/check"))); loadMods(); };
+        <button class="small" data-tog="${i}">${m.enabled ? t("act.disable") : t("act.enable")}</button><button class="small danger" data-del="${i}">${t("act.delete")}</button></div></td></tr>`).join("")}</table>`;
   const mod = (b, k) => d.mods[b.dataset[k]];
+  $$("[data-cfg]", el).forEach((b) => b.onclick = () => modConfigDialog(mod(b, "cfg")));
   $$("[data-src]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "src"); const v = await promptDlg(t("mods.source"), t("mods.sourcePh"), m.source?.url || ""); if (v !== null && await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/source`), { source: v }))) loadMods(); });
   $$("[data-chk]", el).forEach((b) => b.onclick = async () => { b.disabled = true; await act(() => api("POST", sp(`/mods/${encodeURIComponent(mod(b, "chk").folder)}/check`))); loadMods(); });
   $$("[data-upd]", el).forEach((b) => b.onclick = async () => {
@@ -767,6 +827,89 @@ async function loadMods() {
   });
   $$("[data-tog]", el).forEach((b) => b.onclick = async () => { await act(() => api("POST", sp(`/mods/${encodeURIComponent(mod(b, "tog").folder)}/toggle`))); loadMods(); });
   $$("[data-del]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "del"); if (await confirmDlg(t("f.deleteQ", { n: m.name }))) { await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/delete`))); loadMods(); } });
+}
+
+/* Batch upload: every ZIP goes in ONE request; the server installs only after all of them arrived complete,
+   so Cancel (abort) never leaves a half-uploaded / half-installed mod behind. */
+function uploadMods(files) {
+  if (MUP) return toast(t("mods.upBusy"), true);
+  const bad = files.filter((f) => !f.name.toLowerCase().endsWith(".zip"));
+  if (bad.length) return toast(t("mods.onlyZip", { f: bad.map((f) => f.name).join(", ") }), true);
+  const fd = new FormData();
+  files.forEach((f) => fd.append("file", f, f.name));
+  const x = new XMLHttpRequest();
+  MUP = { x, files, total: files.reduce((a, f) => a + f.size, 0), loaded: 0, phase: "upload", server: CUR };
+  x.open("POST", sp("/mods/upload"));
+  x.setRequestHeader("X-Requested-With", "7edcore");
+  x.upload.onprogress = (e) => { if (e.lengthComputable && MUP) { MUP.loaded = e.loaded; MUP.total = e.total; if (e.loaded >= e.total) MUP.phase = "install"; renderUpload(); } };
+  x.upload.onload = () => { if (MUP) { MUP.phase = "install"; renderUpload(); } };
+  const end = (msg, err) => { const srv = MUP?.server; MUP = null; activity(-1); if (msg) toast(msg, err); if (srv === CUR && TAB === "mods") loadMods(); else renderUpload(); };
+  x.onload = () => {
+    let data = {}; try { data = JSON.parse(x.responseText); } catch { /* empty */ }
+    if (x.status === 401) { MUP = null; activity(-1); return showGate(false); }
+    if (x.status >= 400) return end(data.error || x.statusText, true);
+    end(t("mods.installed", { n: (data.report || []).length }));
+  };
+  x.onerror = () => end(t("err.network"), true);
+  x.onabort = () => end(t("mods.cancelled"));
+  activity(+1, t("busy.upload", { p: 0, s: fmtBytes(MUP.total) }));
+  x.send(fd);
+  renderUpload();
+}
+function renderUpload() {
+  const box = $("#mUpload");
+  if (!box) return;
+  if (!MUP || MUP.server !== CUR) { box.innerHTML = ""; return; }
+  const p = MUP.total ? Math.round(MUP.loaded / MUP.total * 100) : 0;
+  activity(0, MUP.phase === "install" ? t("mods.installing") : t("busy.upload", { p, s: fmtBytes(MUP.total) }), MUP.phase === "install" ? null : p);
+  box.innerHTML = `<div class="card upload-card"><div class="row"><b class="sp">${esc(MUP.phase === "install" ? t("mods.installing") : t("mods.uploading", { n: MUP.files.length, p, s: fmtBytes(MUP.total) }))}</b>
+    ${MUP.phase === "upload" ? `<button class="danger small" id="mCancel">✕ ${t("act.cancel")}</button>` : ""}</div>
+    <div class="progress${MUP.phase === "install" ? " indeterminate" : ""}"><div style="width:${MUP.phase === "install" ? 100 : p}%"></div></div>
+    <div class="muted small">${MUP.files.map((f) => esc(f.name) + " (" + fmtBytes(f.size) + ")").join(" · ")}</div></div>`;
+  const c = $("#mCancel");
+  if (c) c.onclick = () => MUP?.x.abort();
+}
+
+async function modConfigDialog(m) {
+  const d = await act(() => api("GET", sp(`/mods/${encodeURIComponent(m.folder)}/files`)));
+  if (!d) return;
+  const dlg = $("#dlg");
+  dlg.classList.add("wide");
+  const body = document.createElement("div");
+  const groups = ["settings", "other", "patch"];
+  const list = (files) => {
+    body.innerHTML = `<p class="muted small">${esc(t("mcfg.hint"))}</p>` + (files.length ? groups.map((g) => {
+      const fs = files.filter((f) => f.kind === g);
+      return fs.length ? `<h4>${esc(t("mcfg." + g))}</h4>${g === "patch" ? `<p class="muted small">${esc(t("mcfg.patchHint"))}</p>` : ""}
+        <div class="filelist">${fs.map((f) => `<button type="button" class="file" data-f="${esc(f.path)}">📄 ${esc(f.path)} <span class="muted small">${fmtBytes(f.size)}</span>${f.edited ? ` <span class="tag warnt">${esc(t("mcfg.edited"))}</span>` : ""}</button>`).join("")}</div>` : "";
+    }).join("") : `<p class="empty">${esc(t("mcfg.none"))}</p>`);
+    $$("[data-f]", body).forEach((b) => b.onclick = () => edit(b.dataset.f, files));
+  };
+  const edit = async (path, files) => {
+    const r = await act(() => api("GET", sp(`/mods/${encodeURIComponent(m.folder)}/file?path=${encodeURIComponent(path)}`)));
+    if (!r) return;
+    const f = files.find((x) => x.path === path) || {};
+    body.innerHTML = `<div class="row" style="margin-bottom:6px"><button type="button" id="mcBack">← ${t("act.back")}</button><b class="sp crumbs">${esc(path)}</b>
+      ${f.has_original ? `<button type="button" id="mcReset">${t("mcfg.reset")}</button>` : ""}<button type="button" class="primary" id="mcSave">${t("act.save")}</button></div>
+      <textarea id="mcText" class="editor" spellcheck="false"></textarea>
+      <p class="muted small">${esc(t(d.running ? "mcfg.restart" : "mcfg.keep"))}</p>`;
+    $("#mcText", body).value = r.content;
+    $("#mcBack", body).onclick = () => list(files);
+    $("#mcSave", body).onclick = async () => {
+      const res = await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/file`), { path, content: $("#mcText", body).value }), t(d.running ? "mcfg.savedRestart" : "ok.saved"));
+      if (res) { files = res.files; list(files); }
+    };
+    const rs = $("#mcReset", body);
+    if (rs) rs.onclick = async () => {
+      if (!window.confirm(t("mcfg.resetQ"))) return;
+      const res = await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/file`), { path, reset: true }), t("ok.saved"));
+      if (res) { files = res.files; edit(path, files); }
+    };
+  };
+  list(d.files);
+  await dialog(t("mcfg.title", { n: m.name }), body, t("act.close"), false, "");
+  dlg.classList.remove("wide");
+  loadMods();
 }
 
 // ------------------------------------------------------------------ backups
@@ -864,7 +1007,21 @@ async function loadAutomation() {
     ${field(t("au.bInterval"), num("backup_interval_hours", 0.5))}${field(t("au.bKeep"), num("backup_keep"))}
     <div class="field">${chk("backup_include_worlds", t("au.bWorlds"))}${chk("backup_only_when_running", t("au.bRunning"))}</div>
   </div></div>
-  <div class="card"><h3>${t("au.danger")}</h3><div class="row"><button id="srvRename">${t("act.rename")}</button><button class="danger" id="srvDel">${t("au.delete")}</button></div></div>`;
+  <div class="card"><h3>${t("dl.title")}</h3><p class="muted small">${esc(t("dl.hint"))}</p>
+    <div class="field">${chk("daylen_dynamic", t("dl.enable"))}</div>
+    <div class="form-grid">
+      ${field(t("dl.base"), `<input type="number" min="0" max="600" data-dl="daylen_base" value="${esc(st.daylen_base)}">`, t("dl.baseHint", { n: S.status.daylen?.configured ?? 60 }))}
+      ${field(t("dl.ref"), `<input type="number" min="0" max="64" data-dl="daylen_ref" value="${esc(st.daylen_ref)}">`)}
+      ${field(t("dl.below"), `<input type="number" min="-90" max="500" data-dl="daylen_below" value="${esc(st.daylen_below)}">`, t("dl.belowHint"))}
+      ${field(t("dl.above"), `<input type="number" min="-90" max="500" data-dl="daylen_above" value="${esc(st.daylen_above)}">`, t("dl.aboveHint"))}
+      ${field(t("dl.min"), `<input type="number" min="1" max="600" data-dl="daylen_min" value="${esc(st.daylen_min)}">`)}
+      ${field(t("dl.max"), `<input type="number" min="1" max="1440" data-dl="daylen_max" value="${esc(st.daylen_max)}">`)}
+    </div>
+    <div class="field">${chk("daylen_freeze", t("dl.freeze"))}</div>
+    <div class="muted small">${esc(t("dl.preview"))}</div><div class="daylen-preview" id="dlPrev"></div>
+    <div class="row" style="margin-top:8px"><span class="sp muted small" id="dlNow"></span><button class="primary" id="dlSave">${t("act.save")}</button></div>
+  </div>
+  <div class="card"><h3>${t("au.danger")}</h3><div class="row"><button id="srvRename">${t("act.rename")}</button><button id="srvDup">⧉ ${t("new.dup")}</button><button class="danger" id="srvDel">${t("au.delete")}</button></div></div>`;
   const drawRules = () => {
     $$("#rules tr[data-r]").forEach((r) => r.remove());
     $("#rules").insertAdjacentHTML("beforeend", rules.map(ruleRow).join("") || `<tr data-r><td colspan="7" class="empty">${esc(t("au.noRules"))}</td></tr>`);
@@ -884,6 +1041,21 @@ async function loadAutomation() {
     act(() => api("POST", sp("/settings"), { [inp.dataset.set]: v }), t("ok.saved"));
   });
   $("#chkNow").onclick = async () => { $("#chkNow").disabled = true; await act(() => api("POST", "/api/updates/check")); $("#chkNow").disabled = false; loadOverview(); };
+  const dlVals = () => Object.fromEntries($$("[data-dl]", el).map((i) => [i.dataset.dl, Number(i.value)]));
+  const dlPreview = () => {
+    const v = dlVals(), base = v.daylen_base || S.status.daylen?.configured || 60, lo = Math.min(v.daylen_min, v.daylen_max), hi = Math.max(v.daylen_min, v.daylen_max);
+    const len = (n) => { const sp_ = n >= v.daylen_ref ? 1 + v.daylen_above / 100 * (n - v.daylen_ref) : 1 + v.daylen_below / 100 * (v.daylen_ref - n); return Math.max(lo, Math.min(hi, Math.round(base / Math.max(sp_, 0.05)))); };
+    const max = Math.max(8, v.daylen_ref + 4);
+    $("#dlPrev").innerHTML = (st.daylen_freeze ? `<span>0 👤 → ${esc(t("dl.paused"))}</span>` : "") + Array.from({ length: max }, (_, k) => k + 1)
+      .map((n) => `<span${n === v.daylen_ref ? ' class="ref"' : ""}>${n} 👤 → ${len(n)} min</span>`).join("");
+    const dl = S.status.daylen || {};
+    $("#dlNow").textContent = !dl.enabled ? "" : dl.frozen ? t("dl.nowFrozen") : dl.applied ? t("dl.now", { n: dl.applied }) + (dl.effective ? " · " + t("dl.effective", { n: dl.effective }) : "") : "";
+  };
+  $$("[data-dl]", el).forEach((i) => i.oninput = dlPreview);
+  $('[data-set="daylen_freeze"]', el).addEventListener("change", (e) => { st.daylen_freeze = e.target.checked; dlPreview(); });
+  dlPreview();
+  $("#dlSave").onclick = () => act(() => api("POST", sp("/settings"), dlVals()), t("ok.saved"));
+  $("#srvDup").onclick = () => newServerDialog(CUR);
   $("#srvRename").onclick = async () => { const n = await promptDlg(t("act.rename"), t("new.name"), S.status.name); if (n) { await act(() => api("POST", sp("/rename"), { name: n })); loadOverview(); } };
   $("#srvDel").onclick = async () => {
     const n = await promptDlg(t("au.delete"), t("au.deleteQ", { n: S.status.name }));
@@ -892,14 +1064,30 @@ async function loadAutomation() {
 }
 
 // ------------------------------------------------------------------ new server
-async function newServerDialog() {
+async function newServerDialog(cloneFrom = "") {
   if (!VERS) await getVersions().catch(() => null);
+  await loadOverview();
+  const ports = OV.free_ports || [];
+  if (!ports.length) return toast(t("new.full", { n: OV.max }), true);
   const body = h(`<p class="muted small">${esc(t("new.hint"))}</p>
     <div class="field"><label>${t("new.name")}</label><input id="nName" maxlength="40"></div>
+    <div class="field"><label>${t("new.clone")}</label><select id="nClone"><option value="">${esc(t("new.none"))}</option>${OV.instances.map((i) => `<option value="${esc(i.id)}"${i.id === cloneFrom ? " selected" : ""}>${esc(i.name)}</option>`).join("")}</select>
+      <div class="hint" id="nCloneHint"></div></div>
+    <div class="field" id="nWorldF"><label class="check"><input type="checkbox" id="nWorld" checked> ${esc(t("new.cloneWorld"))}</label></div>
     <div class="field"><label>${t("new.version")}</label><select id="nVer">${versionOptions("public")}</select></div>
-    <div class="field"><label>${t("new.clone")}</label><select id="nClone"><option value="">${esc(t("new.none"))}</option>${OV.instances.map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("")}</select></div>`);
-  if (!await dialog(t("new.title"), body, t("act.add"))) return;
-  const r = await act(() => api("POST", "/api/servers", { name: $("#nName").value, game_version: $("#nVer").value, clone_from: $("#nClone").value }));
+    <div class="field"><label>${t("new.port")}</label><select id="nPort">${ports.map((p) => `<option value="${p}">${p}</option>`).join("")}</select>
+      <div class="hint">${esc(t("new.portHint"))}</div></div>`);
+  const sync = () => {
+    const src = OV.instances.find((i) => i.id === $("#nClone").value);
+    $("#nWorldF").hidden = !src;
+    $("#nCloneHint").textContent = src ? t("new.cloneHint") : "";
+    if (src) { $("#nVer").value = src.branch; if (!$("#nName").value) $("#nName").value = `${src.name} (2)`.slice(0, 40); }
+  };
+  $("#nClone", body).onchange = sync;
+  setTimeout(sync);
+  if (!await dialog(cloneFrom ? t("new.dupTitle") : t("new.title"), body, cloneFrom ? t("new.dup") : t("act.add"))) return;
+  const r = await act(() => api("POST", "/api/servers", { name: $("#nName").value, game_version: $("#nVer").value, clone_from: $("#nClone").value,
+    clone_world: $("#nWorld").checked, port: Number($("#nPort").value) }), $("#nClone").value ? t("new.copying") : "");
   if (r) { await loadOverview(); selectServer(r.id); }
 }
 

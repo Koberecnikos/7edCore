@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0 - 2026-11-17
+
+- Mods: upload several ZIPs at once (file picker or drag and drop) with progress and a Cancel button. A batch is installed only after every file arrived complete and passed the check, so a cancelled or broken upload never leaves a half-installed mod; leftover temp files are cleaned at startup
+- Mods: search, sort (name, size, install date, status) and totals (number of mods, enabled, total size)
+- Mods → ⚙ Configure: lists the mod's own settings files and edits them in the panel, with XML/JSON validation, "Reset to original" and a restart hint; edits are kept on mod updates
+- Duplicate server as a 1:1 replica: game + panel settings, all mods with their configs and metadata, admins/whitelist/bans and optionally worlds and saves (copied in the background, the source is saved first if it runs)
+- New / duplicated server: choose the game port; the first free one (26900, 26910, …) is preselected
+- Dynamic day length: day length follows the number of players online (reference count, % per player below / above, shortest / longest day); time can stand still while nobody is online; preview and measured speed in the panel
+- Web map: settings dialog with diagnostics (enabled, port, access, does the dashboard answer), "viewable without login" writes the `web.map` permission into serveradmin.xml (the missing permission was why the map asked for a Steam login), and "Render the whole map"
+- README: screenshots of every main page
+
 ## 1.5.1 - 2026-11-09
 
 - Overview → Quick actions: checkbox "Start automatically when the machine starts" per server

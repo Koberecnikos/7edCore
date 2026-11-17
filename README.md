@@ -13,7 +13,8 @@ Several servers on one machine, each with its own game version, mods, backups an
 ## Features
 
 ### Servers
-- **Several servers on one machine.** Each server has its own tab, ports, saves, mods, backups, schedule and settings. Add one with **＋**. A new server can copy the settings of an existing one.
+- **Several servers on one machine.** Each server has its own tab, ports, saves, mods, backups, schedule and settings. Add one with **＋** and pick its game port: the first free one is preselected (26900, then 26910, 26920, …).
+- **Duplicate a server 1:1.** The copy gets the game and panel settings, every mod (enabled and disabled) with its edited configs, admins, whitelist and bans, and optionally the worlds and saves. Only the name and ports change. Files are copied in the background; the new server can start when the copy is finished.
 - **Game version per server.** Run any Steam branch: `public`, `v3.4.0`, `v2.6`, `alpha21.2`, experimental and so on. Installs are shared between servers and managed on the **Game versions** page (install, update, verify, remove).
 - **Save compatibility checks.** 7edCore records the game version each save was made with. It warns before you load a save on a newer version, and it blocks a major-version jump or a downgrade unless you confirm.
 - **Overview.** Players, in-game time, world, CPU and RAM of the server and the machine, server FPS, chunks, zombies, CPU temperature, disk, ports, last backup and the web map link.
@@ -21,10 +22,10 @@ Several servers on one machine, each with its own game version, mods, backups an
   - Save the world, back up now, or message players.
   - Restart or stop with an in-game countdown (cancellable).
   - Update the game, the mods, or both.
-  - Check for updates and enable the web map.
+  - Check for updates, open the web map and its settings, duplicate the server.
   - **Start automatically when the machine starts.**
 - **Live console** with commands. **Player list** with kick, ban and promote to admin.
-- **Web map.** Turn on the game's web dashboard with one click and open the map from the panel. Every server has its own map port.
+- **Web map.** Turn on the game's web dashboard and live map with one click. 7edCore also writes the `web.map` permission into `serveradmin.xml`, so the map opens without a Steam login (optional), checks that the dashboard answers, and can render the whole world in one go (`visitmap`). Every server has its own map port.
 
 ### Game settings
 - **Three levels.** Basic covers world, difficulty, players and party XP range. Detailed has every gameplay option by category. Advanced covers networking, permissions and admin interfaces.
@@ -49,7 +50,10 @@ More than 50 presets. Each one opens a preview that lists every change before an
 - **Challenge modlets.** Some challenges need more than settings. *Lootbag Only*, for example, empties world containers, so 7edCore generates a small server-side XML modlet for them. Players do not install anything.
 
 ### Mods
-- Install from a ZIP (drag and drop, with upload progress), a GitHub repository or a URL.
+- Install from ZIPs (pick or drag and drop several at once), a GitHub repository or a URL.
+- **Safe uploads.** A batch is installed only after every file has arrived complete and been checked. **Cancel** stops the upload and nothing from that batch is installed, so there are no half-copied mods.
+- **Search and sort** by name, size, install date or status. The header shows the number of mods (and how many are enabled) and their total size.
+- **Configure.** Each mod has a ⚙ button that lists its own settings files (XML, JSON, INI, TXT…) and opens them in an editor. XML and JSON are validated before saving, the author's original is kept for **Reset to original**, and the panel says when a restart is needed. XML patches of game data are listed separately as advanced.
 - **Find compatible version** picks the newest release made for your server's game version.
 - Updates keep your edited config files. If the author changed the same file, their version is saved next to yours as `*.new`.
 - Enable, disable or delete mods. Automatic or notify-only mod updates are set per server.
@@ -67,6 +71,7 @@ More than 50 presets. Each one opens a preview that lists every change before an
   - When to install: only when nobody is online, only while stopped, or at the next scheduled restart.
   - A backup is taken before every update.
 - **Backups.** Automatic, on an interval with retention, and manual. They are zstd-compressed on a reserved CPU core. Restore is one click and backs up the current state first.
+- **Dynamic day length.** Time runs faster or slower depending on how many players are online. You set the day length at a reference player count and the speed change per player below and above it, plus a shortest and longest day. With nobody online the clock can stand still. It works through the game console (`setgamepref DayNightLength`, `settime`); the panel shows a preview (players → minutes per day), the length in effect and the speed it measured.
 - **Resources.** RAM limit (warn, or warn players and restart gracefully), CPU core pinning for the server and for backups, crash auto-restart, and the shutdown timeout.
 
 ### Panel
@@ -85,7 +90,34 @@ More than 50 presets. Each one opens a preview that lists every change before an
 - **Safe shutdowns.** Game servers are saved and stopped before the machine shuts down and come back afterwards.
 - **Power loss and UPS.** The `7edcore` command (`save`, `stop-all`, `resume`, …) hooks into NUT or apcupsd. Laptops and mini PCs get battery handling automatically.
 
-<p align="center"><img src="docs/screenshot-overview.jpg" width="49%"> <img src="docs/screenshot-settings.jpg" width="49%"></p>
+## How it looks
+
+**Overview.** Live numbers for the server and the machine, plus quick actions.
+<p align="center"><img src="docs/screenshot-overview.jpg" width="90%"></p>
+
+**Game settings and presets.** Pick a difficulty or stack several presets in the side panel; the top one wins.
+<p align="center"><img src="docs/screenshot-settings.jpg" width="90%"></p>
+
+**Mods.** Batch upload with progress and cancel, search, sorting and totals.
+<p align="center"><img src="docs/screenshot-mods.jpg" width="90%"></p>
+
+**Mod configuration.** The mod's own settings files open in an editor; edits survive mod updates.
+<p align="center"><img src="docs/screenshot-mod-config.jpg" width="70%"></p>
+
+| Duplicate a server (1:1, own port) | Web map settings and check |
+|---|---|
+| <img src="docs/screenshot-duplicate.jpg"> | <img src="docs/screenshot-webmap.jpg"> |
+
+**Dynamic day length.** Day length follows the number of players online.
+<p align="center"><img src="docs/screenshot-daylength.jpg" width="90%"></p>
+
+**Scheduler.** Restarts and updates with in-game warnings.
+<p align="center"><img src="docs/screenshot-automation.jpg" width="90%"></p>
+
+**Live console** and **game versions** shared between servers.
+<p align="center"><img src="docs/screenshot-console.jpg" width="49%"> <img src="docs/screenshot-versions.jpg" width="49%"></p>
+
+**User accounts** with admin, operator and viewer roles.
 <p align="center"><img src="docs/screenshot-users.jpg" width="60%"></p>
 
 ## Install
@@ -201,6 +233,7 @@ pip install aiohttp psutil playwright
 tests/run_server.sh /tmp/7edcore-data 18200        # panel with a fake SteamCMD + fake game server
 python3 tests/api_test.py http://127.0.0.1:18200 testpass123
 python3 tests/ui_test.py  http://127.0.0.1:18200 testpass123 /tmp/shots
+python3 tests/screenshots.py http://127.0.0.1:18300 testpass123 <data dir> docs   # demo data + README screenshots (fresh panel)
 ```
 
 Repository layout:

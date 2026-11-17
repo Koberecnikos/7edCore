@@ -139,8 +139,8 @@ def public_user(name):
 # ------------------------------------------------------------------ permissions
 ADMIN_ONLY = re.compile(r"^/api/(global|selfupdate|users|files|exports|updates/check|servers$)")
 SERVER_PATH = re.compile(r"^/api/s/([^/]+)(/.*)?$")
-VIEWER_DENY_GET = re.compile(r"^/(config|export)$")
-OPERATOR_POST = re.compile(r"^/(server/\w+|command|quick/\w+|backups/(create|restore))$")
+VIEWER_DENY_GET = re.compile(r"^/(config|export|mods/[^/]+/file)$")
+OPERATOR_POST = re.compile(r"^/(server/\w+|command|quick/\w+|backups/(create|restore)|webmap/render)$")
 
 
 def can_see(user, iid):
