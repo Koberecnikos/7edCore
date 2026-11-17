@@ -436,6 +436,8 @@ async def h_settings_set(request):
         if k == "schedule":
             i.settings[k] = validate_schedule(v)
             continue
+        if isinstance(DEFAULT_SETTINGS[k], (dict, list)):
+            continue                                  # managed by their own endpoints
         base = DEFAULT_SETTINGS[k]
         if isinstance(base, bool):
             v = bool(v)
@@ -916,7 +918,8 @@ async def h_mods(request):
     lc = i.logcheck or {}
     for m in mods:
         m["issues"] = (lc.get("mods") or {}).get(m["folder"]) or []
-    return web.json_response({"mods": mods, "path": rel(i.mods.on), "logcheck": {k: lc.get(k) for k in ("summary", "log", "checked")} if lc else None,
+        m["ack"] = i.mod_acked(m["folder"])
+    return web.json_response({"mods": mods, "path": rel(i.mods.on), "logcheck": {k: lc.get(k) for k in ("summary", "log", "checked", "game")} if lc else None,
                               "game": i.game_version_label(), "running": i.state in ("running", "starting"),
                               "policy": i.settings["mod_updates"],
                               "total": {"count": len(mods), "enabled": sum(1 for m in mods if m["enabled"]),
@@ -988,6 +991,21 @@ async def h_mod_op(request):
     if op == "source":
         i.mods.set_source(folder, str((await request.json()).get("source", "")))
         return ok()
+    if op == "ack":                       # "it works anyway": hide these problems until they change
+        ok_ = bool((await request.json()).get("ok", True))
+        acks = dict(i.settings.get("mods_ok") or {})
+        if ok_:
+            iss = ((i.logcheck or {}).get("mods") or {}).get(folder) or []
+            if not iss:
+                raise web.HTTPConflict(text="This mod has no problems from the last start to ignore")
+            acks[folder] = i.issue_sig(iss)
+            i.note(f"Mod problems marked as OK (works anyway): {folder}")
+        else:
+            acks.pop(folder, None)
+        i.settings["mods_ok"] = acks
+        i.save_settings()
+        i.update_problem_notice()
+        return ok(ack=i.mod_acked(folder))
     if op == "file":
         d = await request.json()
         if d.get("reset"):

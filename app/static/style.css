@@ -249,3 +249,4 @@ ul.issues li.info { border-left-color: #3a9a5b; }
 button.small-tag { padding: 1px 7px; font-size: 11px; cursor: pointer; }
 details { margin: 4px 0; } details summary { cursor: pointer; }
 .con-bar { margin-bottom: 6px; }
+ul.issues li.imp-lag { border-left-color: #e3262b; }

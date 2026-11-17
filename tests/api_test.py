@@ -221,6 +221,7 @@ async def main():
             "<configs><set xpath=\"/items/item[@name='gunPistol']/property[@name='Tags']/@value\">x</set>"
             "<remove xpath=\"/items/item[@name='gone']\"/><append xpath=\"/items/item[@name='modAItem']\"><property name='a'/></append></configs>",
             "Config/blocks.xml": "<configs/>"}), filename="broken.zip")
+        fd.add_field("file", modzip("SpammyMod", {"SpammyMod.dll": dll, "FAKE_SPAM": ""}), filename="spammy.zip")
         st, d = await j("POST", P + "/mods/upload", data=fd)
         check(st == 200, f"broken mod uploaded {d}")
         st, d = await j("POST", P + "/mods/compat", json={})
@@ -252,7 +253,15 @@ async def main():
         check("code_failed" in bm and "patch_not_applied" in bm and "xml_failed" in bm and d["summary"]["xml_failed"] == ["items.xml"]
               and d["summary"]["harmless"] >= 1, f"log check {d.get('summary')} {bm}")
         st, d = await j("GET", P + "/status")
-        check(d["notices"].get("problems", {}).get("mods_error") == ["BrokenMod"], f"problems notice {d['notices'].get('problems')}")
+        st, lc = await j("GET", P + "/logcheck?refresh=1")
+        st, d = await j("GET", P + "/status")
+        sp_ = [x["kind"] for x in lc["mods"].get("SpammyMod", [])]
+        check(sp_ == ["runtime_spam"] and lc["mods"]["SpammyMod"][0]["count"] == 25, f"runtime error spam attributed to the mod {lc['mods'].get('SpammyMod')}")
+        check(d["notices"].get("problems", {}).get("mods_error") == ["BrokenMod", "SpammyMod"], f"problems notice {d['notices'].get('problems')}")
+        st, d = await j("POST", P + "/mods/SpammyMod/ack", json={"ok": True})
+        check(st == 200 and d["ack"], "mark mod as works anyway")
+        st, d = await j("GET", P + "/status")
+        check(d["notices"].get("problems", {}).get("mods_error") == ["BrokenMod"], f"acknowledged mod left out of the notice {d['notices'].get('problems')}")
         st, d = await j("GET", P + "/mods")
         check(any(m["folder"] == "BrokenMod" and m["issues"] for m in d["mods"]) and d["logcheck"]["summary"], "mods list carries issues")
         st, d = await j("POST", P + "/quick/fps")
@@ -274,6 +283,7 @@ async def main():
         await wait(lambda d: d["state"] == "stopped", P + "/status", 40)
         st, d = await j("POST", P + "/mods/BrokenMod/delete")
         check(st == 200, "broken mod deleted")
+        st, d = await j("POST", P + "/mods/SpammyMod/delete")
         # backups
         st, d = await j("POST", P + "/backups/create")
         await wait(lambda d: len(d["backups"]) > 0 and not d["busy"], P + "/backups")

@@ -51,6 +51,7 @@ DEFAULT_SETTINGS = {
     "daylen_max": 240,
     "daylen_freeze": True,          # nobody online -> the clock stands still
     "webmap_public": True,          # built-in web map viewable without logging in (web.map permission 2000)
+    "mods_ok": {},                  # {mod folder: signature of the problems the owner marked as "works anyway"}
 }
 DAYLEN_LIMITS = {"daylen_base": (0, 600), "daylen_ref": (0, 64), "daylen_below": (-90, 500), "daylen_above": (-90, 500),
                  "daylen_min": (1, 600), "daylen_max": (1, 1440)}
@@ -336,6 +337,14 @@ class Instance:
             self.apply_map_permission()
             asyncio.create_task(self.run_logcheck())
 
+            async def again(proc=self.proc):      # errors that only show up while the game runs
+                for wait in (300, 3600, 3600 * 6):
+                    await asyncio.sleep(wait)
+                    if self.proc is not proc or not self.running():
+                        return
+                    await self.run_logcheck(quiet=True)
+            asyncio.create_task(again())
+
     async def _telnet_loop(self, proc):
         while proc.returncode is None:
             port = int(get_prop(self.cfg, "TelnetPort", "8081") or 8081)
@@ -617,20 +626,40 @@ class Instance:
         if not f:
             return None
         res = await asyncio.to_thread(logcheck.analyze_file, f, self.mods.for_check(enabled_only=False))
-        res["log"], res["checked"] = f.name, now_ts()
+        res["log"], res["checked"], res["game"] = f.name, now_ts(), self.run_version or self.game_version_label()
         self.logcheck = res
         save_json(self.dir / "logcheck.json", res)
-        sm = res["summary"]
-        if sm["mods_error"] or sm["xml_failed"]:
-            self.notices["problems"] = {"mods_error": sm["mods_error"], "mods_warning": sm["mods_warning"], "xml_failed": sm["xml_failed"]}
-            if not quiet:
+        self.update_problem_notice(announce=not quiet)
+        return res
+
+    @staticmethod
+    def issue_sig(issues):
+        import hashlib
+        return hashlib.sha1("|".join(sorted({f"{i['kind']}:{i['text']}" for i in issues})).encode()).hexdigest()[:12]
+
+    def mod_acked(self, folder):
+        """The owner said 'it works, ignore these' for exactly the problems the mod has now."""
+        iss = ((self.logcheck or {}).get("mods") or {}).get(folder) or []
+        sig = (self.settings.get("mods_ok") or {}).get(folder)
+        return bool(sig) and bool(iss) and sig == self.issue_sig(iss)
+
+    def update_problem_notice(self, announce=False):
+        res = self.logcheck or {}
+        sm = res.get("summary")
+        if not sm:
+            return
+        crit = [f for f in sm["mods_error"] if not self.mod_acked(f)]
+        before = set((self.notices.get("problems") or {}).get("mods_error") or [])
+        announce = announce or bool(set(crit) - before)
+        if crit or sm["xml_failed"]:
+            self.notices["problems"] = {"mods_error": crit, "mods_warning": sm["mods_warning"], "xml_failed": sm["xml_failed"]}
+            if announce:
                 self.note(f"Log check: {len(sm['mods_error'])} mod(s) with errors ({', '.join(sm['mods_error'][:6])})"
                           + (f", game files that failed to load: {', '.join(sm['xml_failed'])}" if sm["xml_failed"] else "")
                           + " - see Mods")
         else:
             self.notices.pop("problems", None)
         self.push_state()
-        return res
 
     # ---------------------------------------------------------- built-in web map
     def admin_file(self):

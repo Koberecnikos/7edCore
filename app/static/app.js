@@ -764,42 +764,62 @@ async function importConfigDialog() {
 // ------------------------------------------------------------------ mods
 let MODS = null, MSORT = "name", MDESC = false, MQ = "", MUP = null, MCOMPAT = null;
 const SEV_ICON = { error: "⛔", warning: "⚠", info: "ℹ" };
+const IMP_ICON = { breaks: "⛔", lag: "🐌", feature: "⚠", minor: "ℹ" };
+const impOf = (x) => x.impact || (x.severity === "error" ? "breaks" : x.severity === "warning" ? "feature" : "minor");
 function modIssues(folder) {
-  const a = (MODS?.mods.find((m) => m.folder === folder)?.issues || []).map((x) => ({ ...x, src: "log" }));
-  const b = MCOMPAT?.server === CUR ? (MCOMPAT.mods[folder] || []).map((x) => ({ ...x, src: "compat" })) : [];
+  const m = MODS?.mods.find((x) => x.folder === folder);
+  const a = (m?.issues || []).map((x) => ({ ...x, src: "log" }));
+  let b = MCOMPAT?.server === CUR ? (MCOMPAT.mods[folder] || []).map((x) => ({ ...x, src: "compat" })) : [];
+  // the last start on the same game version is the ground truth: a mod that started without real problems works
+  const sameVer = MCOMPAT && MODS?.logcheck?.game && MCOMPAT.version && MODS.logcheck.game.startsWith(MCOMPAT.version);
+  if (sameVer && m?.enabled && !a.some((x) => ["breaks", "lag", "feature"].includes(impOf(x))))
+    b = b.map((x) => ({ ...x, impact: "minor", severity: "info", worked: true }));
   return [...a, ...b];
 }
 function issueTags(folder) {
-  const all = modIssues(folder);
-  const e = all.filter((x) => x.severity === "error").length, w = all.filter((x) => x.severity === "warning").length;
-  const ok = MCOMPAT?.server === CUR && MCOMPAT.mods[folder] && !all.some((x) => x.severity !== "info");
-  return (e ? `<button type="button" class="tag no small-tag" data-iss="${esc(folder)}">⛔ ${esc(t("diag.errors", { n: e }))}</button>` : "")
-    + (w ? ` <button type="button" class="tag warnt small-tag" data-iss="${esc(folder)}">⚠ ${esc(t("diag.warnings", { n: w }))}</button>` : "")
-    + (ok ? ` <span class="tag yes">${esc(t("diag.okFor", { v: MCOMPAT.version || MCOMPAT.branch }))}</span>` : "");
+  const m = MODS?.mods.find((x) => x.folder === folder);
+  const all = modIssues(folder), imp = new Set(all.map(impOf));
+  if (m?.ack) return `<button type="button" class="tag small-tag" data-iss="${esc(folder)}" title="${esc(t("diag.ackHint"))}">✔ ${esc(t("diag.acked"))}</button>`;
+  const tag = (cls, k) => ` <button type="button" class="tag ${cls} small-tag" data-iss="${esc(folder)}">${IMP_ICON[k]} ${esc(t("diag.imp." + k))}</button>`;
+  let h_ = imp.has("breaks") ? tag("no", "breaks") : "";
+  if (imp.has("lag")) h_ += tag("no", "lag");
+  if (!h_ && imp.has("feature")) h_ += all.some((x) => impOf(x) === "feature" && x.src === "log") ? tag("warnt", "feature") : tag("warnt", "maybe");
+  if (!h_ && all.some((x) => x.worked)) h_ += ` <span class="tag yes">${esc(t("diag.worked"))}</span>`;
+  else if (!h_ && MCOMPAT?.server === CUR && MCOMPAT.mods[folder]) h_ += ` <span class="tag yes">${esc(t("diag.okFor", { v: MCOMPAT.version || MCOMPAT.branch }))}</span>`;
+  return h_;
 }
 function issueList(items) {
-  return items.length ? `<ul class="issues">${items.map((x) => `<li class="${esc(x.severity)}">${SEV_ICON[x.severity] || ""} ${esc(x.text)}${x.count > 1 ? ` <span class="muted small">×${x.count}</span>` : ""}
-    ${x.src ? ` <span class="tag">${esc(t("diag.src." + x.src))}</span>` : ""}${x.file ? ` <span class="muted small">${esc(x.file)}</span>` : ""}
-    ${x.detail ? `<div class="muted small mono">${esc(x.detail)}</div>` : ""}</li>`).join("")}</ul>` : `<p class="empty">${esc(t("diag.none"))}</p>`;
+  return items.length ? `<ul class="issues">${items.map((x) => { const k = impOf(x); return `<li class="${esc(x.severity || SEVERITY_OF[k])} imp-${k}">${IMP_ICON[k] || ""} ${esc(x.text)}${x.count > 1 ? ` <span class="muted small">×${x.count}</span>` : ""}
+    ${x.src ? ` <span class="tag">${esc(t("diag.src." + x.src))}</span>` : ""}${x.worked ? ` <span class="tag yes">${esc(t("diag.worked"))}</span>` : ""}${x.file ? ` <span class="muted small">${esc(x.file)}</span>` : ""}
+    ${x.detail ? `<div class="muted small mono">${esc(x.detail)}</div>` : ""}</li>`; }).join("")}</ul>` : `<p class="empty">${esc(t("diag.none"))}</p>`;
 }
+const SEVERITY_OF = { breaks: "error", lag: "error", feature: "warning", minor: "info" };
 function renderProblems() {
   const box = $("#mProblems"); if (!box || !MODS) return;
   const sm = MODS.logcheck?.summary, out = [];
-  if (sm && (sm.mods_error.length || sm.xml_failed.length || sm.mods_warning.length)) {
-    out.push(`<div class="alert ${sm.mods_error.length || sm.xml_failed.length ? "downgrade" : "newer_minor"}">
-      <b>${esc(t("diag.lastStart", { f: MODS.logcheck.log || "" }))}</b>
-      ${sm.mods_error.length ? `<div>⛔ ${esc(t("diag.modsErr", { n: sm.mods_error.length }))}: ${sm.mods_error.map((f) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}
-      ${sm.mods_warning.length ? `<div>⚠ ${esc(t("diag.modsWarn", { n: sm.mods_warning.length }))}: ${sm.mods_warning.map((f) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}
-      ${sm.xml_failed.length ? `<div>⛔ ${esc(t("diag.xmlFailed", { f: sm.xml_failed.join(", ") }))}</div>` : ""}
-      <div class="small" style="margin-top:4px"><a href="#" id="mLogAll">${esc(t("diag.showAll"))}</a></div></div>`);
-  } else if (sm) out.push(`<div class="alert same small">✔ ${esc(t("diag.cleanStart", { f: MODS.logcheck.log || "" }))}</div>`);
+  const acked = new Set(MODS.mods.filter((m) => m.ack).map((m) => m.folder));
+  const link = (l) => l.map((f) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ");
+  if (sm) {
+    const crit = sm.mods_error.filter((f) => !acked.has(f)), part = sm.mods_warning.filter((f) => !acked.has(f)), minor = sm.mods_minor || [];
+    if (crit.length || part.length || sm.xml_failed.length || minor.length) {
+      out.push(`<div class="alert ${crit.length || sm.xml_failed.length ? "downgrade" : part.length ? "newer_minor" : "same"}">
+        <b>${esc(t("diag.lastStart", { f: MODS.logcheck.log || "" }))}</b>
+        ${crit.length ? `<div>⛔ ${esc(t("diag.modsErr", { n: crit.length }))}: ${link(crit)}</div>` : ""}
+        ${sm.xml_failed.length ? `<div>⛔ ${esc(t("diag.xmlFailed", { f: sm.xml_failed.join(", ") }))}</div>` : ""}
+        ${part.length ? `<div>⚠ ${esc(t("diag.modsWarn", { n: part.length }))}: ${link(part)}</div>` : ""}
+        ${minor.length ? `<div class="small">ℹ ${esc(t("diag.modsMinor", { n: minor.length }))}: ${link(minor)}</div>` : ""}
+        ${acked.size ? `<div class="small">✔ ${esc(t("diag.ackedN", { n: acked.size }))}: ${link([...acked])}</div>` : ""}
+        <div class="small" style="margin-top:4px">${esc(t("diag.levels"))} · <a href="#" id="mLogAll">${esc(t("diag.showAll"))}</a></div></div>`);
+    } else out.push(`<div class="alert same small">✔ ${esc(t("diag.cleanStart", { f: MODS.logcheck.log || "" }))}</div>`);
+  }
   if (MCOMPAT?.server === CUR) {
-    const bad = Object.entries(MCOMPAT.mods).filter(([, l]) => l.some((x) => x.severity === "error"));
-    const warn = Object.entries(MCOMPAT.mods).filter(([, l]) => !l.some((x) => x.severity === "error") && l.some((x) => x.severity === "warning"));
-    out.push(`<div class="alert ${bad.length ? "downgrade" : warn.length ? "newer_minor" : "same"}"><b>${esc(t("diag.compatTitle", { v: MCOMPAT.version || MCOMPAT.branch }))}</b>
+    const lvl = (f) => { const l = modIssues(f).filter((x) => x.src === "compat"); return acked.has(f) ? 0 : l.some((x) => impOf(x) === "feature") ? 2 : l.some((x) => x.worked) ? 1 : 0; };
+    const maybe = Object.keys(MCOMPAT.mods).filter((f) => lvl(f) === 2), worked = Object.keys(MCOMPAT.mods).filter((f) => lvl(f) === 1);
+    out.push(`<div class="alert ${maybe.length ? "newer_minor" : "same"}"><b>${esc(t("diag.compatTitle", { v: MCOMPAT.version || MCOMPAT.branch }))}</b>
       ${!MCOMPAT.game_dlls ? `<div class="small">${esc(t("diag.noDlls"))}</div>` : ""}
-      <div>${bad.length ? `⛔ ${esc(t("diag.compatBad", { n: bad.length }))}: ${bad.map(([f]) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}` : `✔ ${esc(t("diag.compatOk"))}`}</div>
-      ${warn.length ? `<div>⚠ ${esc(t("diag.compatWarn", { n: warn.length }))}: ${warn.map(([f]) => `<a href="#" data-iss="${esc(f)}">${esc(f)}</a>`).join(", ")}</div>` : ""}</div>`);
+      <div>${maybe.length ? `⚠ ${esc(t("diag.compatBad", { n: maybe.length }))}: ${link(maybe)}` : `✔ ${esc(t("diag.compatOk"))}`}</div>
+      ${worked.length ? `<div class="small">✔ ${esc(t("diag.compatWorked", { n: worked.length }))}: ${link(worked)}</div>` : ""}
+      <div class="small muted">${esc(t("diag.compatNote"))}</div></div>`);
   }
   box.innerHTML = out.join("");
   $$("[data-iss]", box).forEach((a) => a.onclick = (e) => { e.preventDefault(); modIssuesDialog(a.dataset.iss); });
@@ -807,19 +827,30 @@ function renderProblems() {
 }
 async function modIssuesDialog(folder) {
   const m = MODS?.mods.find((x) => x.folder === folder);
-  const items = modIssues(folder);
-  const fix = items.some((x) => ["code_failed", "types_failed", "harmony_target", "missing_type", "missing_member", "xml_failed", "missing_class"].includes(x.kind))
-    ? t("diag.fixCode") : items.some((x) => x.kind === "missing_dependency") ? t("diag.fixDep") : items.some((x) => ["patch_not_applied", "xpath_nomatch"].includes(x.kind)) ? t("diag.fixPatch") : "";
-  await dialog(t("diag.modTitle", { n: m?.name || folder }), `${issueList(items)}${fix ? `<p class="hint">💡 ${esc(fix)}</p>` : ""}`, t("act.close"), false, "");
+  const items = modIssues(folder), imp = new Set(items.map(impOf));
+  const fix = imp.has("breaks") && items.some((x) => x.kind === "missing_dependency") ? t("diag.fixDep")
+    : imp.has("breaks") ? t("diag.fixBreaks") : imp.has("lag") ? t("diag.fixLag")
+    : imp.has("feature") ? (items.some((x) => impOf(x) === "feature" && x.src === "log") ? t("diag.fixFeature") : t("diag.fixMaybe")) : imp.size ? t("diag.fixPatch") : "";
+  const logIss = (m?.issues || []).length;
+  const body = document.createElement("div");
+  body.innerHTML = `${issueList(items)}${fix ? `<p class="hint">💡 ${esc(fix)}</p>` : ""}
+    ${logIss && isAdmin() ? `<div class="row" style="margin-top:8px">${m.ack ? `<button type="button" id="ackOff">${esc(t("diag.unack"))}</button>`
+      : `<button type="button" id="ackOn">✔ ${esc(t("diag.ack"))}</button>`}<span class="muted small sp">${esc(t("diag.ackHint"))}</span></div>` : ""}`;
+  const setAck = async (ok_) => { const r = await act(() => api("POST", sp(`/mods/${encodeURIComponent(folder)}/ack`), { ok: ok_ }), t("ok.saved")); if (r) { m.ack = r.ack; $("#dlg").close(); renderModList(); renderProblems(); loadOverview(); } };
+  const on = $("#ackOn", body), off = $("#ackOff", body);
+  if (on) on.onclick = () => setAck(true);
+  if (off) off.onclick = () => setAck(false);
+  await dialog(t("diag.modTitle", { n: m?.name || folder }), body, t("act.close"), false, "");
 }
 async function logCheckDialog(refresh) {
   const d = await act(() => api("GET", sp("/logcheck" + (refresh ? "?refresh=1" : ""))));
   if (!d) return;
   if (!d.summary) return dialog(t("diag.logTitle"), `<p class="empty">${esc(t("diag.noLog"))}</p>`, t("act.close"), false, "");
   if (MODS) { MODS.logcheck = { summary: d.summary, log: d.log, checked: d.checked }; for (const m of MODS.mods) m.issues = d.mods[m.folder] || []; renderModList(); renderProblems(); }
-  const mods = Object.entries(d.mods).sort((a, b) => (a[1].some((x) => x.severity === "error") ? 0 : 1) - (b[1].some((x) => x.severity === "error") ? 0 : 1));
+  const rank = (l) => Math.min(...l.map((x) => ({ breaks: 0, lag: 1, feature: 2, minor: 3 }[impOf(x)] ?? 3)));
+  const mods = Object.entries(d.mods).sort((a, b) => rank(a[1]) - rank(b[1]));
   const body = `<p class="muted small">${esc(t("diag.logHint", { f: d.log }))}</p>
-    <h4>${esc(t("diag.secMods"))}</h4>${mods.length ? mods.map(([f, l]) => `<details${l.some((x) => x.severity === "error") ? " open" : ""}><summary><b>${esc(f)}</b> ${l.some((x) => x.severity === "error") ? "⛔" : "⚠"}</summary>${issueList(l)}</details>`).join("") : `<p class="empty">✔ ${esc(t("diag.none"))}</p>`}
+    <h4>${esc(t("diag.secMods"))}</h4>${mods.length ? mods.map(([f, l]) => `<details${rank(l) <= 2 ? " open" : ""}><summary><b>${esc(f)}</b> ${["⛔", "🐌", "⚠", "ℹ"][rank(l)]} <span class="muted small">${esc(t("diag.imp." + ["breaks", "lag", "feature", "minor"][rank(l)]))}</span></summary>${issueList(l)}</details>`).join("") : `<p class="empty">✔ ${esc(t("diag.none"))}</p>`}
     <h4>${esc(t("diag.secGeneral"))}</h4>${issueList(d.general)}
     <h4>${esc(t("diag.secHarmless"))}</h4><p class="muted small">${esc(t("diag.harmlessHint"))}</p>
     <ul class="issues">${d.harmless.map((x) => `<li class="info">✔ ${esc(x.text)} <span class="muted small">×${x.count}</span></li>`).join("")}</ul>`;
@@ -890,7 +921,7 @@ function renderModList() {
       : `<span class="ok small">${esc(t("mods.uptodate"))}</span>`;
   };
   const q = MQ.trim().toLowerCase();
-  const key = { name: (m) => m.name.toLowerCase(), size: (m) => m.size || 0, installed: (m) => m.installed_at || 0, status: (m) => { const is = modIssues(m.folder); return (is.some((x) => x.severity === "error") ? -8 : is.some((x) => x.severity === "warning") ? -4 : 0) + (m.enabled ? 0 : 1) + (m.check?.update ? -2 : 0); } }[MSORT];
+  const key = { name: (m) => m.name.toLowerCase(), size: (m) => m.size || 0, installed: (m) => m.installed_at || 0, status: (m) => { const is = m.ack ? [] : modIssues(m.folder).map(impOf); return (is.includes("breaks") || is.includes("lag") ? -8 : is.includes("feature") ? -4 : 0) + (m.enabled ? 0 : 1) + (m.check?.update ? -2 : 0); } }[MSORT];
   const rows = d.mods.map((m, i) => ({ m, i }))
     .filter(({ m }) => !q || [m.name, m.folder, m.author, m.description, m.version].some((x) => String(x || "").toLowerCase().includes(q)))
     .sort((a, b) => { const x = key(a.m), y = key(b.m); return (x < y ? -1 : x > y ? 1 : a.m.name.localeCompare(b.m.name)) * (MDESC ? -1 : 1); });

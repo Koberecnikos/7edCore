@@ -31,6 +31,32 @@ def _norm(line):
     return LOGPFX.sub("", line.rstrip("\r\n"))
 
 
+def _dll_type_names(path):
+    """Namespaces and top-level type names defined in a DLL (empty if it cannot be read)."""
+    try:
+        import dnfile
+        pe = dnfile.dnPE(str(path), fast_load=False)
+        out = set()
+        for r in pe.net.mdtables.TypeDef or []:
+            ns, nm = str(getattr(r.TypeNamespace, "value", r.TypeNamespace) or ""), str(getattr(r.TypeName, "value", r.TypeName) or "")
+            if nm.startswith("<"):
+                continue
+            out.add(f"{ns}.{nm}" if ns else nm)
+            if ns:
+                out.add(ns)
+        return out
+    except Exception:
+        return set()
+
+
+# how bad a problem is for the game (not just for the mod)
+IMPACT = {"xml_failed": "breaks", "missing_dependency": "breaks", "runtime_spam": "lag",
+          "code_failed": "feature", "types_failed": "feature", "harmony_target": "feature", "missing_class": "feature",
+          "runtime_errors": "feature", "patch_not_applied": "minor", "log": "minor"}
+SEVERITY = {"breaks": "error", "lag": "error", "feature": "warning", "minor": "info"}
+RUNTIME_SPAM = 20                                 # errors from one mod while the game runs -> likely lag
+
+
 class ModMap:
     """Resolve mod names / assembly names / folders seen in the log to mod folders."""
 
@@ -44,6 +70,23 @@ class ModMap:
             for dll in Path(m["path"]).rglob("*.dll"):
                 self.by.setdefault(dll.stem.lower(), m["folder"])
         self._texts = None
+        self.code = {}                            # top-level type / namespace names in the mod's DLLs -> folder
+        for m in mods:
+            for dll in Path(m["path"]).rglob("*.dll"):
+                if dll.name.lower() == "0harmony.dll":
+                    continue
+                for n in _dll_type_names(dll):
+                    self.code.setdefault(n, m["folder"])
+
+    def from_frame(self, frame):
+        """'DrokkStoragePatches+X.Prefix (...)' / 'Foo.Bar:Baz(...)' -> mod folder"""
+        name = re.split(r"[\s:(]", frame.strip(), 1)[0]
+        parts = re.split(r"[.+/]", name)
+        for k in range(len(parts), 0, -1):
+            f = self.code.get(".".join(parts[:k]))
+            if f:
+                return f
+        return self.by.get(parts[0].lower()) if parts and len(parts[0]) > 3 else None   # namespace = mod name
 
     def find(self, key):
         if not key:
@@ -87,7 +130,8 @@ def analyze(lines, mods):
             if it["kind"] == kind and it["text"] == text:
                 it["count"] += 1
                 return
-        lst.append({"severity": sev, "kind": kind, "text": text, "detail": detail, "count": 1})
+        imp = IMPACT.get(kind, "minor" if sev != "error" else "feature")
+        lst.append({"severity": SEVERITY[imp], "impact": imp, "kind": kind, "text": text, "detail": detail, "count": 1})
 
     def gen(sev, text, detail=""):
         g = general.setdefault(text, {"severity": sev, "text": text, "detail": detail, "count": 0})
@@ -102,10 +146,31 @@ def analyze(lines, mods):
                 return L[j][4:].strip()
         return ""
 
-    harmony_user = None
+    harmony_user, started = None, False
+    runtime = {}                                  # folder -> [count, first message]
+
+    def frame_mod(i):
+        for j in range(i + 1, min(n, i + 14)):
+            t = L[j]
+            if t.startswith("EXC "):
+                continue                          # ERR line + its exception: the stack trace follows
+            if re.match(r"(INF|ERR|WRN) ", t):
+                return None                       # next log entry: this message had no stack trace
+            fr = t.strip()[3:] if t.strip().startswith("at ") else (t if re.match(r"^[\w.+<>`]+:[\w<>.`]+\(", t) else None)
+            if fr:
+                f = mm.from_frame(fr)
+                if f:
+                    return f
+        return None
+
+    prev_entry = ""
     for i, s in enumerate(L):
         if not s:
             continue
+        if "StartGame done" in s:
+            started = True
+        entry = s[:4] if re.match(r"(INF|ERR|WRN|EXC) ", s) else None
+        after_err, prev_entry = prev_entry == "ERR ", (entry or prev_entry)
         m = re.search(r"Failed initializing ModAPI instance on mod '([^']+)'", s)
         if m:
             f = mm.find(m.group(1)) or m.group(1)
@@ -185,6 +250,17 @@ def analyze(lines, mods):
                 continue
         if not re.match(r"(ERR|EXC|WRN) |ERROR:|WARNING:|\[S_API FAIL\]", s) and "Exception" not in s[:60]:
             continue
+        if s.startswith("EXC ") and after_err:
+            continue                              # the reason of the ERR line just before it
+        if re.match(r"(ERR|EXC) |\w*Exception", s) and not NOISE.match(s.replace("EXC ", "", 1)):
+            f = frame_mod(i)
+            if f:
+                if started:
+                    r = runtime.setdefault(f, [0, s[:240]])
+                    r[0] += 1
+                else:
+                    add(f, "error", "log", re.sub(r"^(ERR|EXC) ", "", s[:240]))
+                continue
         hm = next((label for rx, label in HARMLESS if rx.search(s)), None)
         if hm:
             harmless[hm] = harmless.get(hm, 0) + 1
@@ -202,6 +278,18 @@ def analyze(lines, mods):
             add(f, sev, "log", re.sub(r"^(ERR|WRN) ", "", text))
         else:
             gen(sev, text, next_exc(i) if sev == "error" else "")
+    for f, (cnt, first) in runtime.items():
+        if cnt >= RUNTIME_SPAM:
+            add(f, "error", "runtime_spam", f"Throws errors over and over while the game runs ({cnt}x in this log) - this costs server performance (lag)", first)
+        else:
+            add(f, "error", "runtime_errors", f"Errors while the game runs ({cnt}x) - something in the mod fails, usually only that feature", first)
+        per_mod[f][-1]["count"] = cnt
+    # a mod whose code failed AND whose XML broke a game file: say so in one place
+    for f, lst in per_mod.items():
+        if any(i["kind"] == "xml_failed" for i in lst):
+            for it in lst:
+                if it["kind"] == "code_failed":
+                    it["detail"] = (it["detail"] + " | " if it["detail"] else "") + "its XML still uses the code, so game files fail to load"
     # consequences of a failed XML file: everything defined later is missing
     for x in xml_failed:
         if x["culprit"]:
@@ -212,10 +300,13 @@ def analyze(lines, mods):
         if x["missing"]:
             msg += f" - '{x['missing']}' is missing" + (f" (defined by {', '.join(x['defined_by'])}, probably not loaded because an earlier file failed)" if x["defined_by"] else "")
         gen("error", msg, x["why"])
+    order = {"breaks": 0, "lag": 1, "feature": 2, "minor": 3}
     for f, lst in per_mod.items():
-        lst.sort(key=lambda it: {"error": 0, "warning": 1}.get(it["severity"], 2))
-    summary = {"mods_error": sorted(f for f, l in per_mod.items() if any(i["severity"] == "error" for i in l)),
-               "mods_warning": sorted(f for f, l in per_mod.items() if l and not any(i["severity"] == "error" for i in l)),
+        lst.sort(key=lambda it: order.get(it.get("impact"), 4))
+    worst = {f: min((order.get(i.get("impact"), 4) for i in l), default=4) for f, l in per_mod.items()}
+    summary = {"mods_error": sorted(f for f, w in worst.items() if w <= 1),        # breaks the game / lag
+               "mods_warning": sorted(f for f, w in worst.items() if w == 2),      # part of the mod does not work
+               "mods_minor": sorted(f for f, w in worst.items() if w == 3),
                "xml_failed": [x["file"] for x in xml_failed],
                "errors": sum(1 for g in general.values() if g["severity"] == "error"),
                "harmless": sum(harmless.values())}

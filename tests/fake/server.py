@@ -12,6 +12,9 @@ def L(s): lf.write(time.strftime("%Y-%m-%dT%H:%M:%S") + f" 1.000 {s if s[:4] in 
 L(f"Version: {ver} (b10) Compatibility Version: {ver}, Build: LinuxServer 64 Bit")
 mods_dir = os.path.join(props["UserDataFolder"], "Mods")
 for m in sorted(os.listdir(mods_dir)) if os.path.isdir(mods_dir) else []:
+    if os.path.exists(os.path.join(mods_dir, m, "FAKE_PARTIAL")):     # one Harmony patch misses, the rest works
+        L(f"WRN [MODS][Harmony] AccessTools.DeclaredMethod: Could not find method for type XUiC_LootWindow and name OldRefresh and parameters ()")
+        L(f'INF [MODS][Harmony](Debug) ### Exception from user "{m}", Harmony v2.13.0.0')
     if m.startswith("Broken") or os.path.exists(os.path.join(mods_dir, m, "FAKE_BROKEN")):          # what the real game prints for a mod built for another version
         L(f"ERR [MODS]     Failed initializing ModAPI instance on mod '{m}' in assembly {m}.Boot (in {mods_dir}/{m}/{m}.dll)")
         L("EXC This update supports native 7D2D 3.1, 3.2 and 3.3.")
@@ -88,6 +91,11 @@ async def main():
         await asyncio.start_server(webh, "127.0.0.1", int(props.get("WebDashboardPort", 8080)))
         L(f"Started Webserver on port {props.get('WebDashboardPort')}")
     L("StartGame done"); L("GameServer.LogOn successful")
+    for m in sorted(os.listdir(mods_dir)) if os.path.isdir(mods_dir) else []:
+        if os.path.exists(os.path.join(mods_dir, m, "FAKE_SPAM")):     # a mod that throws every tick
+            for _ in range(25):
+                L("EXC NullReferenceException: Object reference not set to an instance of an object")
+                lf.write(f"  at {m}.Patches.Tick (TileEntityWorkstation __instance) [0x00010] in <0f3a>:0 \n")
     await stop.wait()
     srv.close()
     await asyncio.sleep(0.3)

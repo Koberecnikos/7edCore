@@ -203,7 +203,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
     try:
         pe = dnfile.dnPE(str(path), fast_load=False)
     except Exception as e:
-        return [{"severity": "warning", "kind": "unreadable", "text": f"{Path(path).name}: not a readable .NET assembly ({e})"}]
+        return [{"severity": "info", "impact": "minor", "kind": "unreadable", "text": f"{Path(path).name}: not a readable .NET assembly ({e})"}]
     if not getattr(pe, "net", None) or not pe.net.mdtables:
         return []
     t = pe.net.mdtables
@@ -215,7 +215,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
         if an in local or an in ("mscorlib", "netstandard") or an.startswith(("System", "Microsoft.", "Unity", "Mono.")):
             continue
         if not (managed / f"{an}.dll").exists():
-                issues.append({"severity": "error", "kind": "missing_dll",
+                issues.append({"severity": "warning", "impact": "feature", "kind": "missing_dll",
                                "text": f"{Path(path).name} needs {an}.dll, which is neither in the game nor in any mod"})
     trs = list(t.TypeRef or [])
 
@@ -235,7 +235,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
         if asm in gidx and name not in gidx[asm]:
             missing_types[name] = asm
     for name in sorted(missing_types):
-        issues.append({"severity": "error", "kind": "missing_type", "text": f"uses game type {name}, which does not exist in this game version"})
+        issues.append({"severity": "warning", "impact": "feature", "kind": "missing_type", "text": f"uses game type {name}, which does not exist in this game version"})
     seen = set()
     for r in t.MemberRef or []:
         c = r.Class
@@ -254,7 +254,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
         seen.add((tname, member))
         if _has_member(gidx[asm], tname, member, kind) is False:
             what = "field" if kind == "f" else "method"
-            issues.append({"severity": "error", "kind": "missing_member",
+            issues.append({"severity": "warning", "impact": "feature", "kind": "missing_member",
                            "text": f"uses {tname}.{member} ({what}), which does not exist in this game version"})
     # Harmony patch targets
     tds = list(t.TypeDef or [])
@@ -297,7 +297,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
             continue
         pname = _s(tds[cls_i - 1].TypeName) if cls_i <= len(tds) else "?"
         if tname not in idx:
-            issues.append({"severity": "error", "kind": "harmony_target",
+            issues.append({"severity": "warning", "impact": "feature", "kind": "harmony_target",
                            "text": f"Harmony patch {pname} targets type {tname}, which does not exist in this game version"})
             continue
         m = pt["method"]
@@ -305,7 +305,7 @@ def check_dll(path, gidx, managed, mod_dirs=()):
             continue
         mm = METHOD_TYPES.get(pt["mtype"], "") + m
         if _has_member(idx, tname, mm, "m") is False:
-            issues.append({"severity": "error", "kind": "harmony_target",
+            issues.append({"severity": "warning", "impact": "feature", "kind": "harmony_target",
                            "text": f"Harmony patch {pname} targets {tname}.{mm}, which does not exist in this game version"})
     return issues
 
@@ -333,7 +333,7 @@ def check_xml(mod_dir, server_dir, other_mods_text, cache):
         try:
             root = etree.parse(str(f), etree.XMLParser(recover=False, remove_comments=True)).getroot()
         except etree.XMLSyntaxError as e:
-            issues.append({"severity": "error", "kind": "xml_invalid", "text": f"Config/{rel}: invalid XML ({e})"})
+            issues.append({"severity": "warning", "impact": "feature", "kind": "xml_invalid", "text": f"Config/{rel}: invalid XML ({e})"})
             continue
         key = str(rel)
         if key not in cache:
@@ -355,17 +355,17 @@ def check_xml(mod_dir, server_dir, other_mods_text, cache):
             try:
                 found = doc.xpath(xp)
             except etree.XPathError:
-                issues.append({"severity": "warning", "kind": "xpath_invalid", "text": f"Config/{rel}: XPath not understood: {xp[:160]}"})
+                issues.append({"severity": "info", "impact": "minor", "kind": "xpath_invalid", "text": f"Config/{rel}: XPath not understood: {xp[:160]}"})
                 continue
             if found not in ([], None, False):
                 continue
             names = re.findall(r"@name\s*=\s*['\"]([^'\"]+)['\"]", xp)
             owners = sorted({m for m, txt in other_mods_text.items() for n in names if f'"{n}"' in txt or f"'{n}'" in txt})
             if owners:
-                issues.append({"severity": "info", "kind": "xpath_other_mod",
+                issues.append({"severity": "info", "impact": "minor", "kind": "xpath_other_mod",
                                "text": f"Config/{rel}: <{el.tag}> changes content added by {', '.join(owners)} (fine while that mod is installed)"})
             else:
-                issues.append({"severity": "warning", "kind": "xpath_nomatch",
+                issues.append({"severity": "info", "impact": "minor", "kind": "xpath_nomatch",
                                "text": f"Config/{rel}: <{el.tag} xpath=\"{xp[:160]}\"> matches nothing in this game version - outdated patch"})
     return issues
 

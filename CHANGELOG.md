@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 - 2026-11-17
+
+- Mod problems are rated by impact on the game: breaks the game (game XML failed to load, missing dependency), lag (errors over and over while the game runs - now detected and attributed to the mod from the stack trace), partly broken (only part of the mod works) and harmless. Only breaking / lag problems raise the Overview notice
+- "It works, ignore these problems" per mod: hidden until the mod's problems change
+- Compatibility findings are a prediction: shown as "may not work", and downgraded automatically when the mod started without real problems on that game version
+- The log is analysed again 5 min, 1 h and 6 h after a start to catch errors that only appear while the game runs
+
 ## 1.7.0 - 2026-11-17
 
 - Mods: problems from the last start, per mod - code that did not start (with the mod's reason), built for another game version (missing game types, Harmony patch targets that no longer exist), XML changes that did not apply, missing dependencies (e.g. a weapon pack without its resources mod), and game XML files that failed to load because of a mod (with the follow-up failures of recipes / loot / traders). Red / yellow tags in the list, a summary above it and a notice in the Overview

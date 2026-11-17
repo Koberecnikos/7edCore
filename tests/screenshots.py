@@ -32,6 +32,7 @@ MODS = [
     ("StorageMadness", "1.0.7", "Craft from nearby containers, quick stack, shared storage.", "oldmodder",
      {"StorageMadness.dll": open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fake", "game", "TestCodeMod.dll"), "rb").read(),
       "FAKE_BROKEN": "", "Config/items.xml": "<configs><remove xpath=\"/items/item[@name='oldBackpack']\"/></configs>"}),
+    ("QuickLoot", "2.0", "Loot all / quick stack buttons in containers.", "lazyhands", {"FAKE_PARTIAL": "", "Config/XUi/windows.xml": "<configs/>"}),
 ]
 
 
@@ -75,6 +76,8 @@ async def setup():
         await j("POST", P + "/backups/create")
         await j("POST", "/api/servers", json={"name": "Hardcore Weekend", "clone_from": iid, "port": ov["free_ports"][1]})
         await asyncio.sleep(20)      # let the stats / day-length loop run
+        await j("GET", P + "/logcheck?refresh=1")
+        await j("POST", P + "/mods/QuickLoot/ack", json={"ok": True})
         return iid
 
 
