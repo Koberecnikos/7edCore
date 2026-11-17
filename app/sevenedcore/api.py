@@ -991,6 +991,12 @@ async def h_mod_op(request):
     if op == "source":
         i.mods.set_source(folder, str((await request.json()).get("source", "")))
         return ok()
+    if op == "bypass":                    # skip the mod's own "unsupported game version" check
+        on = bool((await request.json()).get("on", True))
+        done = await asyncio.to_thread(i.mods.set_bypass, folder, on)
+        i.note(f"Mod {folder}: version check {'bypassed' if on else 'restored'} ({', '.join(done) or 'nothing to do'})"
+               + (" - applies after restart" if i.running() else ""))
+        return ok(files=done, **i.mods.gates(folder))
     if op == "ack":                       # "it works anyway": hide these problems until they change
         ok_ = bool((await request.json()).get("ok", True))
         acks = dict(i.settings.get("mods_ok") or {})
@@ -1022,6 +1028,11 @@ async def h_mod_files(request):
     i = inst_of(request)
     folder = request.match_info["folder"]
     return web.json_response({"files": await asyncio.to_thread(i.mods.files, folder), "running": i.running()})
+
+
+async def h_mod_gates(request):
+    i = inst_of(request)
+    return web.json_response(await asyncio.to_thread(i.mods.gates, request.match_info["folder"]))
 
 
 async def h_mod_file(request):
@@ -1289,6 +1300,7 @@ def routes(app):
     r.add_post(p + "/mods/check", h_mods_check_all)
     r.add_get(p + "/mods/{folder}/files", h_mod_files)
     r.add_get(p + "/mods/{folder}/file", h_mod_file)
+    r.add_get(p + "/mods/{folder}/gates", h_mod_gates)
     r.add_post(p + "/mods/{folder}/{op}", h_mod_op)
     r.add_get(p + "/backups", h_backups)
     r.add_post(p + "/backups/{op}", h_backups_op)

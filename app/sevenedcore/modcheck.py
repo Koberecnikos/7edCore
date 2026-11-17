@@ -370,6 +370,41 @@ def check_xml(mod_dir, server_dir, other_mods_text, cache):
     return issues
 
 
+def _ver_key(name):
+    return tuple(int(x) for x in name.split("."))
+
+
+def mod_assemblies(d):
+    """The mod's .NET assemblies: *.dll plus loader payloads with other extensions (Runtime/3.3/X.aphcore).
+    Of per-game-version copies (folders named 3.1, 3.2, 3.3 ...) only the newest is checked - that is
+    the one a loader picks for a game version it does not know."""
+    d = Path(d)
+    found = []
+    for f in sorted(d.rglob("*")):
+        if not f.is_file() or f.name.lower() == "0harmony.dll" or f.suffix.lower() in (".orig", ".bak", ".new", ".tmp"):
+            continue
+        if f.suffix.lower() != ".dll":
+            try:
+                if f.stat().st_size > 64 << 20 or f.suffix.lower() in (".xml", ".txt", ".csv", ".png", ".unity3d", ".json", ".md"):
+                    continue
+                with open(f, "rb") as fh:
+                    if fh.read(2) != b"MZ":
+                        continue
+            except OSError:
+                continue
+        found.append(f)
+    best = {}
+    out = []
+    for f in found:
+        if re.fullmatch(r"\d+(\.\d+)+", f.parent.name):
+            k = (f.parent.parent, f.name)
+            if k not in best or _ver_key(f.parent.name) > _ver_key(best[k].parent.name):
+                best[k] = f
+        else:
+            out.append(f)
+    return out + sorted(best.values())
+
+
 # ------------------------------------------------------------------ whole mod set
 def check_mods(mod_dirs, server_dir):
     """mod_dirs: {folder: Path}. -> {"game_dlls": bool, "mods": {folder: [issues]}}"""
@@ -390,9 +425,7 @@ def check_mods(mod_dirs, server_dir):
     for name, d in mod_dirs.items():
         issues = []
         if gidx:
-            for dll in sorted(Path(d).rglob("*.dll")):
-                if dll.name.lower() in ("0harmony.dll",):
-                    continue
+            for dll in mod_assemblies(d):
                 for it in check_dll(dll, gidx, managed, mod_dirs.values()):
                     it["file"] = str(dll.relative_to(d))
                     issues.append(it)

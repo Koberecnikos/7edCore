@@ -12,6 +12,9 @@ def L(s): lf.write(time.strftime("%Y-%m-%dT%H:%M:%S") + f" 1.000 {s if s[:4] in 
 L(f"Version: {ver} (b10) Compatibility Version: {ver}, Build: LinuxServer 64 Bit")
 mods_dir = os.path.join(props["UserDataFolder"], "Mods")
 for m in sorted(os.listdir(mods_dir)) if os.path.isdir(mods_dir) else []:
+    if os.path.exists(os.path.join(mods_dir, m, "FAKE_GATE")):        # the mod's own version check refuses to start
+        L(f"ERR [MODS]     Failed initializing ModAPI instance on mod '{m}' in assembly {m}.Boot (in {mods_dir}/{m}/{m}.dll)")
+        L("EXC This update supports 7D2D 3.1 and 3.3 only.")
     if os.path.exists(os.path.join(mods_dir, m, "FAKE_PARTIAL")):     # one Harmony patch misses, the rest works
         L(f"WRN [MODS][Harmony] AccessTools.DeclaredMethod: Could not find method for type XUiC_LootWindow and name OldRefresh and parameters ()")
         L(f'INF [MODS][Harmony](Debug) ### Exception from user "{m}", Harmony v2.13.0.0')

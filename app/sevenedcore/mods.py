@@ -255,7 +255,7 @@ class Mods:
                         i = mod_info(d, en)
                         i["size"] = dir_size(d)
                         m = self.meta.get(d.name, {})
-                        i.update(source=m.get("source"), release=m.get("release"), compat=m.get("compat"),
+                        i.update(source=m.get("source"), release=m.get("release"), compat=m.get("compat"), bypass=m.get("bypass"),
                                  check=m.get("check"), installed_at=m.get("installed_at"))
                         out.append(i)
         return out
@@ -302,6 +302,7 @@ class Mods:
                             man.pop(rp, None)         # user-added file, not part of the mod
                     for k in [k for k in man if k.endswith(".new")]:
                         man.pop(k)
+                    self.meta.get(name, {}).pop("bypass", None)       # a new version has its own (unpatched) files
                     self.meta[name] = {**self.meta.get(name, {}), "manifest": man, "installed_at": time.time(),
                                        **({"source": source} if source else {}),
                                        **({"release": release} if release else {}),
@@ -487,6 +488,35 @@ class Mods:
             man[str(f.relative_to(d))] = sha(orig)
             m["manifest"] = {k: v for k, v in man.items() if not k.endswith(".orig")}
             self.save()
+
+    # ---------------------------------------------------------- the mod's own game-version gate
+    def gates(self, folder):
+        from . import modpatch
+        d = self.path(folder)
+        if not d:
+            raise web.HTTPNotFound(text="Mod not found")
+        return {"gates": modpatch.scan_mod(d), "bypass": (self.meta.get(d.name) or {}).get("bypass")}
+
+    def set_bypass(self, folder, on):
+        from . import modpatch
+        d = self.path(folder)
+        if not d:
+            raise web.HTTPNotFound(text="Mod not found")
+        m = self.meta.setdefault(d.name, {})
+        man = m.setdefault("manifest", {}) if m.get("manifest") else None
+        if on:
+            done = modpatch.apply(d)
+            if not done:
+                raise web.HTTPConflict(text="No game-version check found in this mod that could be bypassed")
+            m["bypass"] = {"files": sorted(done), "messages": sorted({x for v in done.values() for x in v}), "at": time.time()}
+        else:
+            done = modpatch.revert(d)
+            m.pop("bypass", None)
+        if man is not None:          # the patched DLL is not a user edit: never carry it over to a new mod version
+            for rel in done:
+                man[rel] = sha(d / rel)
+        self.save()
+        return done
 
     def reset_file(self, folder, relpath):
         _d, f = self._file(folder, relpath)

@@ -58,6 +58,7 @@ More than 50 presets. Each one opens a preview that lists every change before an
 - **"It works anyway."** Plenty of mods are flagged but work fine in practice. Mark such a mod as working and its problems are hidden until they change (after an update, for example). A compatibility finding is also downgraded automatically when the mod started without real problems on that game version.
 - **Log analysis** (Console → 🩺) groups every error by mod and separates the messages that are normal on a dedicated server (shaders, textures, world generator notes …) so they don't hide the real ones.
 - **Compatibility check without starting the server.** Pick any installed game version and 7edCore checks every mod against it: each type, method and field a code mod uses from the game's `Assembly-CSharp.dll`, every Harmony patch target, and every XML patch (XPath) against the game's own XML. Use it before a game update: install the new version on the Game versions page, check, and you know which mods need an update first. Mods cannot be converted to a new game version automatically: code mods have to be rebuilt by their author against the new game code, so the check tells you exactly which ones and why.
+- **Bypass a mod's version check (own risk).** Some mods refuse to start on any game version their author has not listed yet, even when nothing they use has changed. 7edCore finds that check in the mod's DLL and can switch off exactly that one check (the original stays next to it as `*.orig` and can be restored with one click; a mod update brings it back). Run the compatibility check first: if it finds nothing missing, the mod has a good chance to work; the problems view after the next start shows whether it did.
 - **Find compatible version** picks the newest release made for your server's game version.
 - Updates keep your edited config files. If the author changed the same file, their version is saved next to yours as `*.new`.
 - Enable, disable or delete mods. Automatic or notify-only mod updates are set per server.
@@ -107,6 +108,9 @@ More than 50 presets. Each one opens a preview that lists every change before an
 
 **Mod problems.** What failed in the last start and what the compatibility check found, per mod.
 <p align="center"><img src="docs/screenshot-mod-problems.jpg" width="60%"> <img src="docs/screenshot-logcheck.jpg" width="80%"></p>
+
+**Version check bypass.** For mods that refuse unknown game versions.
+<p align="center"><img src="docs/screenshot-mod-gate.jpg" width="60%"></p>
 
 **Mod configuration.** The mod's own settings files open in an editor; edits survive mod updates.
 <p align="center"><img src="docs/screenshot-mod-config.jpg" width="70%"></p>

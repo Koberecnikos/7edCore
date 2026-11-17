@@ -779,14 +779,15 @@ function modIssues(folder) {
 function issueTags(folder) {
   const m = MODS?.mods.find((x) => x.folder === folder);
   const all = modIssues(folder), imp = new Set(all.map(impOf));
-  if (m?.ack) return `<button type="button" class="tag small-tag" data-iss="${esc(folder)}" title="${esc(t("diag.ackHint"))}">✔ ${esc(t("diag.acked"))}</button>`;
+  const lock = m?.bypass ? `<button type="button" class="tag small-tag" data-iss="${esc(folder)}" title="${esc(t("gate.activeHint"))}">🔓 ${esc(t("gate.tag"))}</button> ` : "";
+  if (m?.ack) return lock + `<button type="button" class="tag small-tag" data-iss="${esc(folder)}" title="${esc(t("diag.ackHint"))}">✔ ${esc(t("diag.acked"))}</button>`;
   const tag = (cls, k) => ` <button type="button" class="tag ${cls} small-tag" data-iss="${esc(folder)}">${IMP_ICON[k]} ${esc(t("diag.imp." + k))}</button>`;
   let h_ = imp.has("breaks") ? tag("no", "breaks") : "";
   if (imp.has("lag")) h_ += tag("no", "lag");
   if (!h_ && imp.has("feature")) h_ += all.some((x) => impOf(x) === "feature" && x.src === "log") ? tag("warnt", "feature") : tag("warnt", "maybe");
   if (!h_ && all.some((x) => x.worked)) h_ += ` <span class="tag yes">${esc(t("diag.worked"))}</span>`;
   else if (!h_ && MCOMPAT?.server === CUR && MCOMPAT.mods[folder]) h_ += ` <span class="tag yes">${esc(t("diag.okFor", { v: MCOMPAT.version || MCOMPAT.branch }))}</span>`;
-  return h_;
+  return lock + h_;
 }
 function issueList(items) {
   return items.length ? `<ul class="issues">${items.map((x) => { const k = impOf(x); return `<li class="${esc(x.severity || SEVERITY_OF[k])} imp-${k}">${IMP_ICON[k] || ""} ${esc(x.text)}${x.count > 1 ? ` <span class="muted small">×${x.count}</span>` : ""}
@@ -832,11 +833,26 @@ async function modIssuesDialog(folder) {
     : imp.has("breaks") ? t("diag.fixBreaks") : imp.has("lag") ? t("diag.fixLag")
     : imp.has("feature") ? (items.some((x) => impOf(x) === "feature" && x.src === "log") ? t("diag.fixFeature") : t("diag.fixMaybe")) : imp.size ? t("diag.fixPatch") : "";
   const logIss = (m?.issues || []).length;
+  const g = isAdmin() ? await api("GET", sp(`/mods/${encodeURIComponent(folder)}/gates`)).catch(() => null) : null;
+  const gateMsgs = g ? Object.values(g.gates).flat().map((x) => x.message) : [];
+  const gateBox = g && (gateMsgs.length || g.bypass) ? `<div class="alert ${g.bypass ? "same" : "newer_minor"}" style="margin-top:10px">
+      ${g.bypass ? `<b>🔓 ${esc(t("gate.active"))}</b><div class="small">${esc(t("gate.activeHint"))}</div>`
+        : `<b>🔒 ${esc(t("gate.found"))}</b><div class="small mono">${gateMsgs.map(esc).join("<br>")}</div><div class="small">${esc(t("gate.hint"))}</div>`}
+      <div class="row" style="margin-top:6px">${g.bypass ? `<button type="button" id="gateOff">${esc(t("gate.off"))}</button>`
+        : `<button type="button" class="danger" id="gateOn">🔓 ${esc(t("gate.on"))}</button>`}</div></div>` : "";
   const body = document.createElement("div");
-  body.innerHTML = `${issueList(items)}${fix ? `<p class="hint">💡 ${esc(fix)}</p>` : ""}
+  body.innerHTML = `${issueList(items)}${fix && !gateMsgs.length ? `<p class="hint">💡 ${esc(fix)}</p>` : ""}${gateBox}
     ${logIss && isAdmin() ? `<div class="row" style="margin-top:8px">${m.ack ? `<button type="button" id="ackOff">${esc(t("diag.unack"))}</button>`
       : `<button type="button" id="ackOn">✔ ${esc(t("diag.ack"))}</button>`}<span class="muted small sp">${esc(t("diag.ackHint"))}</span></div>` : ""}`;
   const setAck = async (ok_) => { const r = await act(() => api("POST", sp(`/mods/${encodeURIComponent(folder)}/ack`), { ok: ok_ }), t("ok.saved")); if (r) { m.ack = r.ack; $("#dlg").close(); renderModList(); renderProblems(); loadOverview(); } };
+  const setGate = async (on_) => {
+    if (on_ && !window.confirm(t("gate.confirm"))) return;
+    const r = await act(() => api("POST", sp(`/mods/${encodeURIComponent(folder)}/bypass`), { on: on_ }), t(on_ ? "gate.done" : "gate.undone"));
+    if (r) { $("#dlg").close(); loadMods(); }
+  };
+  const gOn = $("#gateOn", body), gOff = $("#gateOff", body);
+  if (gOn) gOn.onclick = () => setGate(true);
+  if (gOff) gOff.onclick = () => setGate(false);
   const on = $("#ackOn", body), off = $("#ackOff", body);
   if (on) on.onclick = () => setAck(true);
   if (off) off.onclick = () => setAck(false);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.0 - 2026-11-18
+
+- Mods: "Bypass the version check (own risk)" for mods that refuse to start on game versions their author has not listed (`throw new NotSupportedException("supports 3.1, 3.2 and 3.3")`). Only that check is neutralised (11 bytes of IL replaced by `nop`), the original is kept as `*.orig` and can be restored; a mod update brings the original back
+- Compatibility check: also checks loader payloads with other extensions (e.g. `Runtime/3.3/*.aphcore`); of per-version copies only the newest one is checked - the one such a loader falls back to
+
 ## 1.8.0 - 2026-11-17
 
 - Mod problems are rated by impact on the game: breaks the game (game XML failed to load, missing dependency), lag (errors over and over while the game runs - now detected and attributed to the mod from the stack trace), partly broken (only part of the mod works) and harmless. Only breaking / lag problems raise the Overview notice
