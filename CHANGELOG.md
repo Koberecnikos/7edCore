@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1 - 2026-11-18
+
+- Fix: after a panel update the browser could keep running the old interface from its cache (new version number, old screens). Script and style URLs now carry a content hash, so every update loads the new files
+
 ## 1.9.0 - 2026-11-18
 
 - Mods: "Bypass the version check (own risk)" for mods that refuse to start on game versions their author has not listed (`throw new NotSupportedException("supports 3.1, 3.2 and 3.3")`). Only that check is neutralised (11 bytes of IL replaced by `nop`), the original is kept as `*.orig` and can be restored; a mod update brings the original back

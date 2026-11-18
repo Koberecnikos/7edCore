@@ -13,8 +13,37 @@ from sevenedcore.util import DATA, INST_ROOT, PANEL_DIR, PANEL_PORT, VERSIONS_DI
 STATIC = Path(__file__).resolve().parent / "static"
 
 
+def _asset_tag():
+    """Changes whenever any static file changes, so browsers never keep an old app.js after an update."""
+    import hashlib
+    h = hashlib.sha1(__version__.encode())
+    for f in sorted(STATIC.iterdir()):
+        if f.suffix in (".js", ".css"):
+            h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+INDEX = None
+
+
 async def h_index(request):
-    return web.FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+    global INDEX
+    if INDEX is None:
+        tag = _asset_tag()
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        for name in ("style.css", "i18n.js", "app.js"):
+            html = html.replace(f'"/static/{name}"', f'"/static/{name}?v={tag}"')
+        INDEX = html
+    return web.Response(text=INDEX, content_type="text/html", headers={"Cache-Control": "no-cache, no-store"})
+
+
+@web.middleware
+async def static_cache(request, handler):
+    resp = await handler(request)
+    if request.path.startswith("/static/"):
+        # versioned URLs (?v=) may be cached for a long time, anything else must be revalidated
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable" if request.query.get("v") else "no-cache"
+    return resp
 
 
 def main():
@@ -25,7 +54,7 @@ def main():
     hub = Hub()
     hub.load()
     api.HUB = hub
-    app = web.Application(middlewares=[api.errors, auth.middleware], client_max_size=8 * 1024 ** 3)
+    app = web.Application(middlewares=[static_cache, api.errors, auth.middleware], client_max_size=8 * 1024 ** 3)
     app.router.add_get("/", h_index)
     app.router.add_static("/static/", STATIC)
     app.router.add_get("/api/session", auth.h_session)
