@@ -250,3 +250,5 @@ button.small-tag { padding: 1px 7px; font-size: 11px; cursor: pointer; }
 details { margin: 4px 0; } details summary { cursor: pointer; }
 .con-bar { margin-bottom: 6px; }
 ul.issues li.imp-lag { border-left-color: #e3262b; }
+
+.moddiff { margin: 8px 0 4px; padding-left: 18px; } .moddiff li { margin: 2px 0; } .moddiff .bad { color: var(--bad, #f87171); }

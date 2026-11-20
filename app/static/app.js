@@ -109,9 +109,32 @@ async function promptDlg(title, label, value = "") {
   return ok ? $("#dlgIn").value : null;
 }
 function compatText(c) { return t("compat." + c.level, { save: c.save_version || "?", game: c.game || "?" }); }
+// what differs between the mod list a world was played with and the installed mods
+function modDiffHtml(d) {
+  if (!d) return "";
+  const li = (arr, f) => arr.map((x) => `<li>${f(x)}</li>`).join("");
+  return `<ul class="moddiff">${li(d.removed || [], (n) => `<b class="bad">− ${esc(n)}</b> <span class="muted">${esc(t("md.removed"))}</span>`)}
+    ${li(d.added || [], (n) => `<b>+ ${esc(n)}</b> <span class="muted">${esc(t("md.added"))}</span>`)}
+    ${li(d.changed || [], (c) => `<b>~ ${esc(c.name)}</b> <span class="muted">${esc(c.from || "?")} → ${esc(c.to || "?")}</span>`)}</ul>`;
+}
 function compatDialog(c, msg) {
+  if (c.level === "mods")
+    return dialog(t("md.title"), `<div class="alert major">${esc(t("md.start"))}</div>${modDiffHtml(c.diff)}<p class="muted small">${esc(t("md.risk"))}</p>`,
+      t("md.startAnyway"), true);
   return dialog(t("compat.title"), `<div class="alert ${c.level}">${esc(compatText(c))}</div><p class="muted small">${esc(c.save || "")}</p>`,
     t("compat.force"), true);
+}
+// before changing mods of a server whose world already exists: warn, offer a backup of the world first
+async function modChangeOk(what) {
+  if (!S.status?.has_world) return true;
+  const ok = await dialog(t("md.title"), `<div class="alert newer_minor">${esc(t("md.change", { what }))}</div><p class="muted small">${esc(t("md.risk"))}</p>
+    <label class="check"><input type="checkbox" id="mdBackup" checked> ${esc(t("md.backupFirst"))}</label>`, t("md.go"), true);
+  if (!ok) return false;
+  if ($("#mdBackup").checked) {
+    await api("POST", sp("/backups/create")).catch(() => null);
+    toast(t("md.backupStarted"));
+  }
+  return true;
 }
 
 // ------------------------------------------------------------------ language picker
@@ -332,7 +355,8 @@ function renderOverview() {
       : `<div class="card wide row"><span class="sp">${esc(t("ov.notinstalled", { b: g.branch }))}</span><button class="primary" id="ovInstall">${esc(t("ov.install"))}</button></div>`;
   }
   const c = st.compat || {};
-  const compat = ["same", "new"].includes(c.level) ? "" : `<div class="alert ${c.level} wide">${esc(compatText(c))}</div>`;
+  const compat = (["same", "new"].includes(c.level) ? "" : `<div class="alert ${c.level} wide">${esc(compatText(c))}</div>`)
+    + (st.mods_changed ? `<div class="alert newer_minor wide"><b>${esc(t("md.banner"))}</b>${modDiffHtml(st.mods_changed)}</div>` : "");
   $("#tab-overview").innerHTML = `<div class="grid">${top}${compat}
     ${card(t("ov.players"), st.state === "running" ? `${(st.players || []).length} / ${esc(w.ServerMaxPlayerCount || "?")}` : "–", esc((st.players || []).map((p) => p.name).join(", ")))}
     ${card(t("ov.time"), esc(st.gametime || "–"), [st.started_at ? esc(t("ov.up", { d: fmtDur(Date.now() / 1000 - st.started_at) })) : "",
@@ -389,6 +413,7 @@ function quickActions() {
     if (q === "dup") return newServerDialog(CUR);
     if (q === "say") { const m = await promptDlg(t("qa.say"), t("qa.sayPh")); if (m) act(() => api("POST", sp("/quick/say"), { message: m }), t("ok.saved")); return; }
     if (q === "update_game" && n.game_update?.kind === "major" && !await confirmDlg(t("kind.major"))) return;
+    if ((q === "update_mods" || q === "update_all") && n.mods?.length && !await modChangeOk(t("md.w.updAll"))) return;
     b.disabled = true;
     const r = await act(() => api("POST", sp("/quick/" + q), { minutes }), q === "saveworld" ? t("ok.saved") : q === "check" ? "" : t("ok.queued"));
     if (q === "check" && r) { toast(r.notices.game_update || r.notices.mods?.length ? "" : t("qa.nothing")); loadOverview(); }
@@ -912,7 +937,7 @@ async function loadMods() {
   dz.ondragover = (e) => { e.preventDefault(); dz.classList.add("over"); };
   dz.ondragleave = () => dz.classList.remove("over");
   dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove("over"); const fs = [...e.dataTransfer.files]; if (fs.length) uploadMods(fs); };
-  $("#mUrlBtn").onclick = async () => { const v = $("#mUrl").value.trim(); if (v && await act(() => api("POST", sp("/mods/install"), { source: v }), t("ok.saved"))) loadMods(); };
+  $("#mUrlBtn").onclick = async () => { const v = $("#mUrl").value.trim(); if (v && await modChangeOk(t("md.w.add")) && await act(() => api("POST", sp("/mods/install"), { source: v }), t("ok.saved"))) loadMods(); };
   $("#mCheck").onclick = async () => { $("#mCheck").disabled = true; await act(() => api("POST", sp("/mods/check"))); loadMods(); };
   $("#mSearch").oninput = (e) => { MQ = e.target.value; renderModList(); };
   $("#mSort").onchange = (e) => { MSORT = e.target.value; renderModList(); };
@@ -957,18 +982,21 @@ function renderModList() {
   $$("[data-upd]", el).forEach((b) => b.onclick = async () => {
     if (live()) return toast(t("mods.stopFirst"), true);
     b.disabled = true;
-    const r = await act(() => api("POST", sp(`/mods/${encodeURIComponent(mod(b, "upd").folder)}/update`)));
+    const mu = mod(b, "upd");
+    if (!(await modChangeOk(t("md.w.upd", { n: mu.name })))) return;
+    const r = await act(() => api("POST", sp(`/mods/${encodeURIComponent(mu.folder)}/update`)));
     if (r) for (const x of r.report) { toast(t("mods.updateDone", { k: x.kept.length })); if (x.conflicts.length) toast(t("mods.conflicts", { n: x.conflicts.length }) + " " + x.conflicts.join(", "), true); }
     loadMods();
   });
-  $$("[data-tog]", el).forEach((b) => b.onclick = async () => { await act(() => api("POST", sp(`/mods/${encodeURIComponent(mod(b, "tog").folder)}/toggle`))); loadMods(); });
-  $$("[data-del]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "del"); if (await confirmDlg(t("f.deleteQ", { n: m.name }))) { await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/delete`))); loadMods(); } });
+  $$("[data-tog]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "tog"); if (!(await modChangeOk(t(m.enabled ? "md.w.off" : "md.w.on", { n: m.name })))) return; await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/toggle`))); loadMods(); });
+  $$("[data-del]", el).forEach((b) => b.onclick = async () => { const m = mod(b, "del"); if (S.status?.has_world ? await modChangeOk(t("md.w.del", { n: m.name })) : await confirmDlg(t("f.deleteQ", { n: m.name }))) { await act(() => api("POST", sp(`/mods/${encodeURIComponent(m.folder)}/delete`))); loadMods(); } });
 }
 
 /* Batch upload: every ZIP goes in ONE request; the server installs only after all of them arrived complete,
    so Cancel (abort) never leaves a half-uploaded / half-installed mod behind. */
-function uploadMods(files) {
+async function uploadMods(files) {
   if (MUP) return toast(t("mods.upBusy"), true);
+  if (!(await modChangeOk(t("md.w.add")))) return;
   const bad = files.filter((f) => !f.name.toLowerCase().endsWith(".zip"));
   if (bad.length) return toast(t("mods.onlyZip", { f: bad.map((f) => f.name).join(", ") }), true);
   const fd = new FormData();
@@ -1060,7 +1088,7 @@ async function loadBackups() {
     <p class="muted small">${t("bk.total", { t: fmtBytes(d.total), m: fmtBytes(d.mods_size), k: d.keep, o: d.keep_other, g: d.max_gb ? d.max_gb + " GB" : "–" })}</p>
     ${d.backups.length ? `<table><tr><th><input type="checkbox" id="bkAll"></th><th>${t("f.name")}</th><th>${t("bk.kind")}</th><th>${t("bk.content")}</th><th class="num">${t("f.size")}</th><th>${t("f.changed")}</th><th></th></tr>
     ${d.backups.map((b, i) => `<tr><td><input type="checkbox" data-sel="${i}"></td><td>${esc(b.name)}</td><td><span class="tag">${esc(t("bk.kind." + b.kind))}</span></td>
-      <td class="small muted">${!b.split ? t("bk.old") : [t("bk.saves"), b.worlds ? t("bk.maps") : "", b.mods ? t("bk.mods") : ""].filter(Boolean).join(" + ")}</td>
+      <td class="small muted">${!b.split ? t("bk.old") : [t("bk.saves"), b.worlds ? t("bk.maps") : "", b.mods != null ? t("bk.modlist", { n: b.mods }) : ""].filter(Boolean).join(" + ")}</td>
       <td class="num">${fmtBytes(b.size)}</td><td>${fmtTime(b.mtime)}</td>
       <td class="row"><a class="small admin-only" href="/api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small op-only" data-rs="${i}">${t("act.restore")}</button><button class="small danger admin-only" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
     : `<p class="empty">${esc(t("bk.none"))}</p>`}`;
@@ -1071,7 +1099,16 @@ async function loadBackups() {
   $("#bkNew").onclick = async () => { await act(() => api("POST", sp("/backups/create")), t("ok.queued")); setTimeout(loadBackups, 1500); };
   $("#bkPrune").onclick = async () => { const r = await act(() => api("POST", sp("/backups/prune"))); if (r) { toast(t("bk.freed", { n: fmtBytes(r.freed) })); loadBackups(); } };
   $("#bkDelSel").onclick = async () => { if (await confirmDlg(t("bk.delSelQ", { n: sel.size }))) { await act(() => api("POST", sp("/backups/delete"), { names: [...sel] })); loadBackups(); } };
-  $$("[data-rs]", el).forEach((b) => b.onclick = async () => { const n = d.backups[b.dataset.rs].name; if (await confirmDlg(t("bk.restoreQ", { n }))) { await act(() => api("POST", sp("/backups/restore"), { name: n }), t("ok.queued")); setTimeout(loadBackups, 1500); } });
+  $$("[data-rs]", el).forEach((b) => b.onclick = async () => {
+    const n = d.backups[b.dataset.rs].name;
+    const c = await api("GET", sp("/backups/check?name=" + encodeURIComponent(n))).catch(() => ({ known: false }));
+    const warn = !c.known ? `<div class="alert newer_minor">${esc(t("md.restoreUnknown"))}</div>`
+      : c.diff ? `<div class="alert major">${esc(t("md.restoreDiff"))}</div>${modDiffHtml(c.diff)}<p class="muted small">${esc(t("md.risk"))}</p>`
+      : `<div class="alert same">${esc(t("md.restoreSame", { n: c.mods }))}</div>`;
+    if (await dialog(t("confirm.title"), `<p>${esc(t("bk.restoreQ", { n }))}</p>${warn}`, t("act.restore"), true)) {
+      await act(() => api("POST", sp("/backups/restore"), { name: n }), t("ok.queued")); setTimeout(loadBackups, 1500);
+    }
+  });
   $$("[data-bd]", el).forEach((b) => b.onclick = async () => { const n = d.backups[b.dataset.bd].name; if (await confirmDlg(t("f.deleteQ", { n }))) { await act(() => api("POST", sp("/backups/delete"), { name: n })); loadBackups(); } });
 }
 

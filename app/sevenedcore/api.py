@@ -257,6 +257,9 @@ async def h_action(request):
         c = i.compat_check()
         if c["level"] in ("major", "downgrade") and not force:
             raise CompatError("The active save was made with a different game version", c)
+        md = i.mods_changed()
+        if md and not force:
+            raise CompatError("The mod list changed since the world was last played", {"level": "mods", "diff": md})
         if not HUB.steam.installed(i.branch):
             raise web.HTTPConflict(text=f"Game version {i.branch} is not installed")
         bg(i.start(force=True), "Start", i)
@@ -1048,10 +1051,15 @@ async def h_mods_check_all(request):
 
 
 # ------------------------------------------------------------------ backups
+async def h_backup_check(request):
+    i = inst_of(request)
+    return web.json_response(i.restore_check(request.query.get("name", "")))
+
+
 async def h_backups(request):
     i = inst_of(request)
     bks = i.list_backups()
-    mods = sum(f.stat().st_size for w in ("mods", "maps") if (i.backups / w).exists() for f in (i.backups / w).glob(w + "_*.tar.zst"))
+    mods = sum(f.stat().st_size for f in (i.backups / "maps").glob("maps_*.tar.zst")) if (i.backups / "maps").exists() else 0
     return web.json_response({"backups": bks, "busy": i.busy, "path": rel(i.backups),
                               "total": sum(b["size"] for b in bks) + mods, "mods_size": mods,
                               "keep": i.settings["backup_keep"], "keep_other": i.settings.get("backup_keep_other", 3),
@@ -1320,4 +1328,5 @@ def routes(app):
     r.add_get(p + "/mods/{folder}/gates", h_mod_gates)
     r.add_post(p + "/mods/{folder}/{op}", h_mod_op)
     r.add_get(p + "/backups", h_backups)
+    r.add_get(p + "/backups/check", h_backup_check)
     r.add_post(p + "/backups/{op}", h_backups_op)

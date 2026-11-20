@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0 - 2026-11-20
+- Mods are no longer backed up at all. They are already installed in the server's Mods folder; a backup now holds
+  saves, config and the generated map, and records the list of mods (name + version) the world was played with.
+  The shared mod copies made by 1.10.0 (backups/mods) are deleted automatically.
+- Restore never touches the installed mods. Before restoring, the panel shows how the backup's mod list differs
+  from the installed one.
+- The panel remembers which mods each world was last played with. Start asks first when a mod is missing, new or in
+  another version (missing mods can remove blocks, items and creatures from the world, or stop it from loading);
+  the overview shows the difference as a banner.
+- Enabling, disabling, deleting, installing or updating a mod while a world exists asks first and offers a world
+  backup.
+
 ## 1.10.0 - 2026-11-20
 - Backups no longer fill the disk: an automatic, scheduled or before-update backup is skipped when nothing changed
   since the last backup (a server nobody plays on makes one backup, not a new one every few hours).

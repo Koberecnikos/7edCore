@@ -179,6 +179,7 @@ class Instance:
             "game": {"branch": self.branch, "installed": st.installed(self.branch), "version": self.game_version_label(),
                      "build": st.installed_build(self.branch), "busy": st.busy, "progress": st.progress},
             "compat": self.compat_check(), "notices": self.notices,
+            "has_world": self.has_world(), "mods_changed": self.mods_changed(),
             "ram_limit_gb": self.settings.get("ram_limit_gb"), "pending": self.pending_what,
             "preset": self.settings.get("preset"), "preset_stack": self.settings.get("preset_stack") or [],
             "daylen": {"enabled": bool(self.settings.get("daylen_dynamic")), "applied": self.daylen_applied,
@@ -289,7 +290,7 @@ class Instance:
             self.players, self.gametime, self.meminfo = [], "", {}
             self.ram_over = 0
             self.set_state("starting")
-            self.save_pstate(was_running=True)
+            self.save_pstate(was_running=True, world_modlist=self.modlist())
             proc = self.proc
             self.tasks = [asyncio.create_task(self._read_stdout(proc)),
                           asyncio.create_task(self._tail_log(proc, self.logfile)),
@@ -882,9 +883,10 @@ class Instance:
             st = f.stat()
             kind = next((k for k in ("auto", "pre-restore", "pre-update", "pre-import") if f"_{k}" in f.name), "manual")
             meta = load_json(f.with_suffix(".json"), {}) if f.with_suffix(".json").exists() else {}
+            ml = meta.get("modlist")
             out.append({"name": f.name, "size": st.st_size, "mtime": st.st_mtime, "kind": kind,
-                        "mods": meta.get("mods"), "maps": meta.get("maps"), "worlds": bool(meta.get("maps") or meta.get("worlds")),
-                        "split": bool(meta)})
+                        "mods": len(ml) if isinstance(ml, list) else None, "maps": meta.get("maps"),
+                        "worlds": bool(meta.get("maps") or meta.get("worlds")), "split": bool(meta)})
         return out
 
     # The game data of a backup (saves, maps, config) and the mods are kept apart: mods are big and rarely change,
@@ -924,7 +926,69 @@ class Instance:
         os.replace(part, out)
         return bcpu
 
-    SNAP = {"mods": ("userdata/Mods", "userdata/Mods_disabled"), "maps": ("userdata/GeneratedWorlds",)}
+    SNAP = {"maps": ("userdata/GeneratedWorlds",)}
+
+    # Mods are NOT backed up: they are installed files that do not change while playing. A backup records which
+    # mods (and versions) the world was played with; restoring or starting with a different mod list warns first.
+    def modlist(self):
+        """Enabled mods [{folder, name, version}] - cached until a ModInfo.xml or the folder changes (status asks often)."""
+        from .mods import mod_info
+        key = []
+        if self.mods.on.exists():
+            for d in sorted(self.mods.on.iterdir()):
+                try:
+                    key.append((d.name, (d / "ModInfo.xml").stat().st_mtime_ns))
+                except OSError:
+                    continue
+        key = tuple(key)
+        cached = getattr(self, "_modlist_cache", None)
+        if cached and cached[0] == key:
+            return [dict(m) for m in cached[1]]
+        out = []
+        for folder, _ in key:
+            i = mod_info(self.mods.on / folder, True)
+            out.append({"folder": folder, "name": i.get("name") or folder, "version": i.get("version") or ""})
+        self._modlist_cache = (key, out)
+        return [dict(m) for m in out]
+
+    @staticmethod
+    def modlist_diff(old, new):
+        """What changed from the mod list `old` (world / backup) to `new` (installed now)."""
+        o = {m["folder"]: m for m in old or []}
+        n = {m["folder"]: m for m in new or []}
+        d = {"removed": [o[k]["name"] for k in o if k not in n], "added": [n[k]["name"] for k in n if k not in o],
+             "changed": [{"name": n[k]["name"], "from": o[k]["version"], "to": n[k]["version"]}
+                         for k in n if k in o and (o[k]["version"] or "") != (n[k]["version"] or "")]}
+        return d if any(d.values()) else None
+
+    @staticmethod
+    def diff_text(d):
+        parts = []
+        if d.get("removed"):
+            parts.append("missing " + ", ".join(d["removed"]))
+        if d.get("added"):
+            parts.append("new " + ", ".join(d["added"]))
+        if d.get("changed"):
+            parts.append("other version " + ", ".join(f"{c['name']} {c['from'] or '?'} -> {c['to'] or '?'}" for c in d["changed"]))
+        return "; ".join(parts)
+
+    def restore_check(self, name):
+        f = self.backups / Path(name).name
+        meta = load_json(f.with_suffix(".json"), {}) if f.with_suffix(".json").exists() else {}
+        ml = meta.get("modlist")
+        if not isinstance(ml, list):
+            return {"known": False, "diff": None}
+        return {"known": True, "diff": self.modlist_diff(ml, self.modlist()), "mods": len(ml)}
+
+    def has_world(self):
+        saves = self.userdata / "Saves"
+        return saves.exists() and any(p.is_file() for p in saves.rglob("*"))
+
+    def mods_changed(self):
+        """Mod list differs from the one the world was last played with (None = same / no world / unknown)."""
+        if not self.has_world() or self.pstate.get("world_modlist") is None:
+            return None
+        return self.modlist_diff(self.pstate["world_modlist"], self.modlist())
 
     async def _snapshot(self, what):
         """Archive of mods / generated maps, made only when they changed (they are big and rarely change).
@@ -945,7 +1009,9 @@ class Instance:
         return name
 
     def _prune_mods_snapshots(self):
-        """Delete mods / maps archives no backup points at any more."""
+        """Delete map archives no backup points at any more (and the mod copies 1.10.0 made - mods are not backed up)."""
+        if (self.backups / "mods").is_dir():
+            shutil.rmtree(self.backups / "mods", ignore_errors=True)
         bks = self.list_backups()
         for what in self.SNAP:
             sdir = self.backups / what
@@ -998,8 +1064,7 @@ class Instance:
                 await asyncio.sleep(3)
             # nothing changed since the last backup (e.g. nobody played): an automatic backup would only copy the
             # same data again - skip it. A manual backup is always made.
-            sig = "|".join([self._fingerprint(members), str(worlds), self.settings.get("backup_compression", ""),
-                            self._fingerprint([m for m in ("userdata/Mods", "userdata/Mods_disabled") if (self.dir / m).exists()])]
+            sig = "|".join([self._fingerprint(members), str(worlds), self.settings.get("backup_compression", "")]
                            + ([self._fingerprint(["userdata/GeneratedWorlds"])] if worlds else []))
             last = self.pstate.get("last_backup_file")
             if kind != "manual" and sig == self.pstate.get("last_backup_sig") and last and (self.backups / last).exists():
@@ -1010,14 +1075,15 @@ class Instance:
             self.set_busy(f"Backup ({kind})")
             try:
                 t0 = time.monotonic()
-                mods = await self._snapshot("mods")
+                mods = self.modlist()
                 maps = await self._snapshot("maps") if worlds else None
                 name = f"{stamp()}_{kind}.tar.zst"
                 bcpu = await self._tar(self.backups / name, members, self.dir)
-                save_json((self.backups / name).with_suffix(".json"), {"mods": mods, "maps": maps, "kind": kind})
+                save_json((self.backups / name).with_suffix(".json"),
+                          {"modlist": self.pstate.get("world_modlist") or mods, "installed_mods": mods, "maps": maps, "kind": kind})
                 size = (self.backups / name).stat().st_size
                 self.note(f"Backup done: {name} ({size / 1048576:.1f} MB, {time.monotonic() - t0:.0f} s, core {bcpu})"
-                          + (f", mods {mods}" if mods else "") + (f", maps {maps}" if maps else ""))
+                          + (f", {len(mods)} mods listed" if mods else "") + (f", maps {maps}" if maps else ""))
                 self.save_pstate(last_backup=now_ts(), last_backup_sig=sig, last_backup_file=name,
                                  **({"last_auto_backup": now_ts()} if kind == "auto" else {}))
                 freed = self.prune_backups()
@@ -1039,15 +1105,17 @@ class Instance:
             self.set_busy("Restoring backup")
             try:
                 tmp = Path(tempfile.mkdtemp(dir=self.dir, prefix=".restore_"))
+                # installed mods are never replaced by a restore (older backups contain them - skipped)
                 proc = await asyncio.create_subprocess_exec("tar", "--zstd", "-xf", str(f), "-C", str(tmp),
+                                                            "--exclude=userdata/Mods", "--exclude=userdata/Mods_disabled",
+                                                            "--exclude=mods.json",
                                                             stdout=asyncio.subprocess.PIPE,
                                                             stderr=asyncio.subprocess.STDOUT)
                 out, _ = await proc.communicate()
                 if proc.returncode != 0:
                     shutil.rmtree(tmp, ignore_errors=True)
                     raise web.HTTPInternalServerError(text="Extract failed: " + out.decode(errors="replace")[-300:])
-                for m in ("userdata/Saves", "userdata/GeneratedWorlds", "userdata/Mods", "userdata/Mods_disabled",
-                          "config", "mods.json"):
+                for m in ("userdata/Saves", "userdata/GeneratedWorlds", "config"):
                     src = tmp / m
                     if src.exists():
                         dst = self.dir / m
@@ -1079,7 +1147,13 @@ class Instance:
                     shutil.rmtree(mt, ignore_errors=True)
                 shutil.rmtree(tmp, ignore_errors=True)
                 self.pstate.pop("last_backup_sig", None)
+                # the restored world was played with the backup's mod list
+                ml = meta.get("modlist")
+                self.pstate["world_modlist"] = ml if isinstance(ml, list) else None
                 self.save_pstate()
+                diff = self.modlist_diff(ml, self.modlist()) if isinstance(ml, list) else None
+                if diff:
+                    self.note("Restore: installed mods differ from the backup's - " + self.diff_text(diff))
                 self.ensure_config()
                 self.mods = Mods(self)
                 self.note(f"Restored from {f.name}")

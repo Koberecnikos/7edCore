@@ -260,6 +260,8 @@ async def main():
         st, d = await j("POST", P + "/settings", json={"daylen_below": -95})
         check(st == 400, "day length limits")
         st, d = await j("POST", P + "/server/start")
+        check(st == 409 and d["compat"]["level"] == "mods" and "ModA" in d["compat"]["diff"]["added"], f"mods added since the world was played -> warning {st} {d}")
+        st, d = await j("POST", P + "/server/start?force=1")
         d = await wait(lambda d: d["state"] == "running" and d["console_connected"], P + "/status")
         st, d = await j("GET", P + "/webmap")
         check(d.get("reachable") is True, f"web map reachable {d}")
@@ -306,8 +308,12 @@ async def main():
         st, d = await j("GET", P + "/backups")
         check(len(d["backups"]) >= 1, f"backup created {[b['name'] for b in d['backups']]}")
         n0 = len(d["backups"])
-        check(d["backups"][0]["split"] and "mods_size" in d, f"new backup format, mods stored apart {d['backups'][0]}")
-        import os as _os2, time as _t2
+        check(d["backups"][0]["split"] and "mods_size" in d, f"new backup format {d['backups'][0]}")
+        import os as _os2, time as _t2, json as _js2
+        bdir = udir.rsplit("/", 1)[0] + "/backups"
+        side = _js2.load(open(str(__import__("pathlib").Path(bdir, d["backups"][0]["name"]).with_suffix(".json"))))
+        check(isinstance(side.get("modlist"), list) and isinstance(side.get("installed_mods"), list)
+              and d["backups"][0]["mods"] == len(side["modlist"]), f"backup records the mod list {side}")
         _t2.sleep(1.1)
         st, d = await j("POST", P + "/backups/create", json={"auto": True})
         await wait(lambda d: not d["busy"], P + "/backups")
@@ -319,8 +325,10 @@ async def main():
         await wait(lambda d: len(d["backups"]) == n0 + 1 and not d["busy"], P + "/backups")
         st, d = await j("GET", P + "/backups")
         check(len(d["backups"]) == n0 + 1 and d["backups"][0]["kind"] == "auto", "changed save -> new automatic backup")
-        mods_dir = _os2.listdir(d_backups := (udir.rsplit("/", 1)[0] + "/backups/mods")) if _os2.path.isdir(udir.rsplit("/", 1)[0] + "/backups/mods") else []
-        check(len([m for m in mods_dir if m.startswith("mods_")]) <= 1, f"mods stored once {mods_dir}")
+        check(not _os2.path.exists(bdir + "/mods"), "mods are not backed up")
+        st, d = await j("GET", P + "/status")
+        check(d["has_world"] and d["mods_changed"] and "BrokenMod" in d["mods_changed"]["removed"],
+              f"deleting a mod the world was played with is reported {d.get('mods_changed')}")
         st, d = await j("POST", P + "/settings", json={"backup_keep": 0})
         st, d = await j("POST", P + "/backups/prune")
         check(st == 200 and d["freed"] > 0, f"prune frees space {d}")
@@ -331,10 +339,11 @@ async def main():
         await wait(lambda d: len(d["backups"]) == n0 + 1 and not d["busy"], P + "/backups")
         st, d = await j("GET", P + "/backups")
         check(len(d["backups"]) == n0 + 1 and d["compression"] == "max", "manual backup with maximum compression")
-        # restore brings back saves, the generated map and the mods from their shared copies
+        # restore brings back saves and the generated map; installed mods are never touched
         _os2.makedirs(udir + "/GeneratedWorlds/TestMap", exist_ok=True)
         open(udir + "/GeneratedWorlds/TestMap/map.bin", "wb").write(_os2.urandom(4096))
-        mods_now = sorted(_os2.listdir(udir + "/Mods")) if _os2.path.isdir(udir + "/Mods") else []
+        _os2.makedirs(udir + "/Mods/LaterMod", exist_ok=True)
+        open(udir + "/Mods/LaterMod/ModInfo.xml", "w").write('<xml><Name value="LaterMod"/><Version value="2.0"/></xml>')
         st, d = await j("POST", P + "/settings", json={"backup_include_worlds": True})
         st, d = await j("POST", P + "/backups/create")
         await wait(lambda d: len(d["backups"]) == n0 + 2 and not d["busy"], P + "/backups")
@@ -344,13 +353,30 @@ async def main():
         _os2.remove(udir + "/GeneratedWorlds/TestMap/map.bin")
         _os2.remove(udir + "/Saves/changed.txt")
         import shutil as _sh
-        if mods_now:
-            _sh.rmtree(udir + "/Mods/" + mods_now[0])
+        side = _js2.load(open(str(__import__("pathlib").Path(bdir, newest["name"]).with_suffix(".json"))))
+        check(any(m["folder"] == "LaterMod" for m in side["installed_mods"]) and not any(m["folder"] == "LaterMod" for m in side["modlist"]),
+              "backup keeps the world's mod list apart from what is installed")
+        _sh.rmtree(udir + "/Mods/LaterMod")
+        mods_now = sorted(_os2.listdir(udir + "/Mods")) if _os2.path.isdir(udir + "/Mods") else []
+        st, d = await j("GET", P + "/backups/check?name=" + newest["name"])
+        check(st == 200 and d["known"] and d["diff"] and "BrokenMod" in d["diff"]["removed"], f"restore check shows the mod difference {d}")
         st, d = await j("POST", P + "/backups/restore", json={"name": newest["name"]})
         await wait(lambda d: not d["busy"] and any(b["kind"] == "pre-restore" for b in d["backups"]), P + "/backups", 60)
         _t2.sleep(1)
+        now = sorted(_os2.listdir(udir + "/Mods")) if _os2.path.isdir(udir + "/Mods") else []
         check(_os2.path.exists(udir + "/GeneratedWorlds/TestMap/map.bin") and _os2.path.exists(udir + "/Saves/changed.txt")
-              and (not mods_now or sorted(_os2.listdir(udir + "/Mods")) == mods_now), f"restore: saves, map and mods back (mods {mods_now})")
+              and now == mods_now and "LaterMod" not in now, f"restore: saves and map back, installed mods untouched {now}")
+        st, d = await j("GET", P + "/status")
+        check(d["mods_changed"] and "BrokenMod" in d["mods_changed"]["removed"], f"restored world remembers its mods {d.get('mods_changed')}")
+        st, d = await j("POST", P + "/server/start")
+        check(st == 409 and d.get("compat", {}).get("level") == "mods" and d["compat"]["diff"]["removed"], f"start warns about the mod list {st} {d}")
+        st, d = await j("POST", P + "/server/start?force=1")
+        check(st == 200, f"start anyway {st} {d}")
+        await wait(lambda d: d["state"] == "running", P + "/status", 60)
+        st, d = await j("GET", P + "/status")
+        check(d["mods_changed"] is None, f"played with the new mods -> no warning {d.get('mods_changed')}")
+        st, d = await j("POST", P + "/server/stop")
+        await wait(lambda d: d["state"] == "stopped", P + "/status", 40)
         st, d = await j("GET", P + "/backups")
         st, d = await j("POST", P + "/backups/delete", json={"names": [b["name"] for b in d["backups"]]})
         st, d = await j("GET", P + "/backups")

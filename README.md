@@ -75,7 +75,8 @@ More than 50 presets. Each one opens a preview that lists every change before an
   - Mod updates: off, notify or auto.
   - When to install: only when nobody is online, only while stopped, or at the next scheduled restart.
   - A backup is taken before every update.
-- **Backups.** Automatic, on an interval with retention, and manual. They are zstd-compressed on a reserved CPU core. Restore is one click and backs up the current state first.
+- **Backups.** Automatic, on an interval with retention, and manual. They are zstd-compressed on a reserved CPU core and skipped when nothing changed. Mods are not backed up: they are already installed, a backup only records the mod list the world was played with. Restore is one click, backs up the current state first and shows how the backup's mods differ from the installed ones.
+- **Mod list guard.** The panel remembers which mods each world was played with. Starting it with mods missing, added or in another version, or changing mods while a world exists, asks first and offers a backup, because a missing mod can remove blocks and items from the world.
 - **Dynamic day length.** Time runs faster or slower depending on how many players are online. You set the day length at a reference player count and the speed change per player below and above it, plus a shortest and longest day. With nobody online the clock can stand still. It works through the game console (`setgamepref DayNightLength`, `settime`); the panel shows a preview (players → minutes per day), the length in effect and the speed it measured.
 - **Resources.** RAM limit (warn, or warn players and restart gracefully), CPU core pinning for the server and for backups, crash auto-restart, and the shutdown timeout.
 
