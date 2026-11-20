@@ -879,7 +879,13 @@ class Instance:
     # ---------------------------------------------------------- backups
     def list_backups(self):
         out = []
-        for f in sorted(self.backups.glob("*.tar.zst"), reverse=True):
+        files = []
+        for f in self.backups.glob("*.tar.zst"):
+            try:
+                files.append((f.stat().st_mtime_ns, f.name, f))
+            except OSError:
+                continue
+        for _, _, f in sorted(files, reverse=True):     # newest first (by time: "x-2" sorts before "x" by name)
             st = f.stat()
             kind = next((k for k in ("auto", "pre-restore", "pre-update", "pre-import") if f"_{k}" in f.name), "manual")
             meta = load_json(f.with_suffix(".json"), {}) if f.with_suffix(".json").exists() else {}
@@ -889,8 +895,8 @@ class Instance:
                         "worlds": bool(meta.get("maps") or meta.get("worlds")), "split": bool(meta)})
         return out
 
-    # The game data of a backup (saves, maps, config) and the mods are kept apart: mods are big and rarely change,
-    # so they are stored once per change in backups/mods/ and every backup only points at the right copy.
+    # A backup holds saves + config and records the mod list (mods are installed files, never backed up).
+    # Generated maps are big and rarely change: stored once per change in backups/maps/, backups point at a copy.
     def _fingerprint(self, rels):
         """count / size / newest change of everything under the given paths - equal = nothing changed."""
         n = size = newest = 0
@@ -990,6 +996,16 @@ class Instance:
             return None
         return self.modlist_diff(self.pstate["world_modlist"], self.modlist())
 
+    @staticmethod
+    def _free_name(d, base):
+        """<base>.tar.zst, or <base>-2.tar.zst ... when taken (two archives in the same second must not overwrite
+        each other - e.g. a map snapshot and the pre-restore one right after it)."""
+        name, n = f"{base}.tar.zst", 1
+        while (d / name).exists():
+            n += 1
+            name = f"{base}-{n}.tar.zst"
+        return name
+
     async def _snapshot(self, what):
         """Archive of mods / generated maps, made only when they changed (they are big and rarely change).
         Returns its file name in backups/<what>/, or None when there is nothing."""
@@ -1002,7 +1018,7 @@ class Instance:
         known = load_json(sdir / "index.json", {})
         if sig in known and (sdir / known[sig]).exists():
             return known[sig]
-        name = f"{what}_{stamp()}.tar.zst"
+        name = self._free_name(sdir, f"{what}_{stamp()}")
         await self._tar(sdir / name, rels, self.dir)
         known[sig] = name
         save_json(sdir / "index.json", known)
@@ -1072,12 +1088,13 @@ class Instance:
                 if kind == "auto":
                     self.save_pstate(last_auto_backup=now_ts())
                 return last
+            prev_busy = self.busy
             self.set_busy(f"Backup ({kind})")
             try:
                 t0 = time.monotonic()
                 mods = self.modlist()
                 maps = await self._snapshot("maps") if worlds else None
-                name = f"{stamp()}_{kind}.tar.zst"
+                name = self._free_name(self.backups, f"{stamp()}_{kind}")
                 bcpu = await self._tar(self.backups / name, members, self.dir)
                 save_json((self.backups / name).with_suffix(".json"),
                           {"modlist": self.pstate.get("world_modlist") or mods, "installed_mods": mods, "maps": maps, "kind": kind})
@@ -1091,7 +1108,7 @@ class Instance:
                     self.note(f"Old backups removed: {freed / 1048576:.0f} MB freed")
                 return name
             finally:
-                self.set_busy("")
+                self.set_busy(prev_busy or "")
 
     async def restore_backup(self, name):
         f = self.backups / Path(name).name
@@ -1099,8 +1116,14 @@ class Instance:
             raise web.HTTPNotFound(text="Backup not found")
         if self.running():
             raise web.HTTPConflict(text="Stop the server before restoring")
-        if (self.userdata / "Saves").exists():
-            await self.create_backup("pre-restore")
+        # busy for the whole restore, the pre-restore backup included (no idle gap the UI could see as "done")
+        self.set_busy("Restoring backup")
+        try:
+            if (self.userdata / "Saves").exists():
+                await self.create_backup("pre-restore")
+        except BaseException:
+            self.set_busy("")
+            raise
         async with self.backup_lock:
             self.set_busy("Restoring backup")
             try:

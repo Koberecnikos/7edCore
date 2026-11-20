@@ -11,6 +11,10 @@
   the overview shows the difference as a banner.
 - Enabling, disabling, deleting, installing or updating a mod while a world exists asks first and offers a world
   backup.
+- Fix: two backups or map copies made in the same second (e.g. a backup and the before-restore backup right after
+  it) overwrote each other; the second one now gets its own name. Backups are listed newest first by time.
+- Fix: the panel showed a restore as finished while it was still extracting (between the before-restore backup and
+  the restore itself).
 
 ## 1.10.0 - 2026-11-20
 - Backups no longer fill the disk: an automatic, scheduled or before-update backup is skipped when nothing changed

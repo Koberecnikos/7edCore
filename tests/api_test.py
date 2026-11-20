@@ -362,10 +362,13 @@ async def main():
         check(st == 200 and d["known"] and d["diff"] and "BrokenMod" in d["diff"]["removed"], f"restore check shows the mod difference {d}")
         st, d = await j("POST", P + "/backups/restore", json={"name": newest["name"]})
         await wait(lambda d: not d["busy"] and any(b["kind"] == "pre-restore" for b in d["backups"]), P + "/backups", 60)
+        # the pre-restore backup shows up before the extraction runs: wait for the restored files themselves
+        await wait(lambda d: not d["busy"] and _os2.path.exists(udir + "/Saves/changed.txt"), P + "/backups", 60)
         _t2.sleep(1)
         now = sorted(_os2.listdir(udir + "/Mods")) if _os2.path.isdir(udir + "/Mods") else []
         check(_os2.path.exists(udir + "/GeneratedWorlds/TestMap/map.bin") and _os2.path.exists(udir + "/Saves/changed.txt")
-              and now == mods_now and "LaterMod" not in now, f"restore: saves and map back, installed mods untouched {now}")
+              and now == mods_now and "LaterMod" not in now,
+              f"restore: saves and map back, installed mods untouched {now} vs {mods_now} map={_os2.path.exists(udir + '/GeneratedWorlds/TestMap/map.bin')} save={_os2.path.exists(udir + '/Saves/changed.txt')}")
         st, d = await j("GET", P + "/status")
         check(d["mods_changed"] and "BrokenMod" in d["mods_changed"]["removed"], f"restored world remembers its mods {d.get('mods_changed')}")
         st, d = await j("POST", P + "/server/start")
