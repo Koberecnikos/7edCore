@@ -1050,7 +1050,12 @@ async def h_mods_check_all(request):
 # ------------------------------------------------------------------ backups
 async def h_backups(request):
     i = inst_of(request)
-    return web.json_response({"backups": i.list_backups(), "busy": i.busy, "path": rel(i.backups)})
+    bks = i.list_backups()
+    mods = sum(f.stat().st_size for w in ("mods", "maps") if (i.backups / w).exists() for f in (i.backups / w).glob(w + "_*.tar.zst"))
+    return web.json_response({"backups": bks, "busy": i.busy, "path": rel(i.backups),
+                              "total": sum(b["size"] for b in bks) + mods, "mods_size": mods,
+                              "keep": i.settings["backup_keep"], "keep_other": i.settings.get("backup_keep_other", 3),
+                              "max_gb": i.settings.get("backup_max_gb", 0), "compression": i.settings.get("backup_compression")})
 
 
 async def h_backups_op(request):
@@ -1058,14 +1063,26 @@ async def h_backups_op(request):
     op = request.match_info["op"]
     d = await request.json() if request.can_read_body else {}
     if op == "create":
-        bg(i.create_backup("manual"), "Backup", i)
+        # {"auto": true}: like the automatic one - skipped when nothing changed since the last backup
+        bg(i.create_backup("auto" if d.get("auto") else "manual"), "Backup", i)
     elif op == "restore":
         bg(i.restore_backup(str(d.get("name", ""))), "Restore", i)
     elif op == "delete":
-        f = i.backups / Path(str(d.get("name", ""))).name
-        if not f.exists():
+        names = d.get("names") or [d.get("name", "")]
+        gone = 0
+        for n in names:
+            f = i.backups / Path(str(n)).name
+            if f.suffix == ".zst" and f.exists():
+                f.unlink()
+                f.with_suffix(".json").unlink(missing_ok=True)
+                gone += 1
+        if not gone:
             raise web.HTTPNotFound()
-        f.unlink()
+        i._prune_mods_snapshots()
+    elif op == "prune":
+        freed = i.prune_backups()
+        i.note(f"Backups cleaned up: {freed / 1048576:.0f} MB freed")
+        return web.json_response({"ok": True, "freed": freed})
     else:
         raise web.HTTPNotFound()
     return ok()

@@ -1053,12 +1053,24 @@ async function loadBackups() {
   const el = $("#tab-backups");
   const d = await act(() => api("GET", sp("/backups")));
   if (!d) return;
-  el.innerHTML = `<div class="row op-only" style="margin-bottom:12px"><button class="primary" id="bkNew"${d.busy ? " disabled" : ""}>${t("bk.create")}</button><span class="busy">${esc(d.busy || "")}</span><span class="sp"></span><span class="muted small">${esc(d.path)}</span></div>
-    ${d.backups.length ? `<table><tr><th>${t("f.name")}</th><th>${t("bk.kind")}</th><th class="num">${t("f.size")}</th><th>${t("f.changed")}</th><th></th></tr>
-    ${d.backups.map((b, i) => `<tr><td>${esc(b.name)}</td><td><span class="tag">${esc(t("bk.kind." + b.kind))}</span></td><td class="num">${fmtBytes(b.size)}</td><td>${fmtTime(b.mtime)}</td>
+  const sel = new Set();
+  el.innerHTML = `<div class="row op-only" style="margin-bottom:12px"><button class="primary" id="bkNew"${d.busy ? " disabled" : ""}>${t("bk.create")}</button>
+      <button class="admin-only" id="bkPrune">${t("bk.prune")}</button><button class="danger admin-only" id="bkDelSel" disabled>${t("bk.delSel")}</button>
+      <span class="busy">${esc(d.busy || "")}</span><span class="sp"></span><span class="muted small">${esc(d.path)}</span></div>
+    <p class="muted small">${t("bk.total", { t: fmtBytes(d.total), m: fmtBytes(d.mods_size), k: d.keep, o: d.keep_other, g: d.max_gb ? d.max_gb + " GB" : "–" })}</p>
+    ${d.backups.length ? `<table><tr><th><input type="checkbox" id="bkAll"></th><th>${t("f.name")}</th><th>${t("bk.kind")}</th><th>${t("bk.content")}</th><th class="num">${t("f.size")}</th><th>${t("f.changed")}</th><th></th></tr>
+    ${d.backups.map((b, i) => `<tr><td><input type="checkbox" data-sel="${i}"></td><td>${esc(b.name)}</td><td><span class="tag">${esc(t("bk.kind." + b.kind))}</span></td>
+      <td class="small muted">${!b.split ? t("bk.old") : [t("bk.saves"), b.worlds ? t("bk.maps") : "", b.mods ? t("bk.mods") : ""].filter(Boolean).join(" + ")}</td>
+      <td class="num">${fmtBytes(b.size)}</td><td>${fmtTime(b.mtime)}</td>
       <td class="row"><a class="small admin-only" href="/api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small op-only" data-rs="${i}">${t("act.restore")}</button><button class="small danger admin-only" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
     : `<p class="empty">${esc(t("bk.none"))}</p>`}`;
+  const upd = () => { $("#bkDelSel").disabled = !sel.size; $("#bkDelSel").textContent = sel.size ? `${t("bk.delSel")} (${sel.size})` : t("bk.delSel"); };
+  $$("[data-sel]", el).forEach((c) => c.onchange = () => { const n = d.backups[c.dataset.sel].name; c.checked ? sel.add(n) : sel.delete(n); upd(); });
+  const all = $("#bkAll", el);
+  if (all) all.onchange = () => $$("[data-sel]", el).forEach((c) => { c.checked = all.checked; c.onchange(); });
   $("#bkNew").onclick = async () => { await act(() => api("POST", sp("/backups/create")), t("ok.queued")); setTimeout(loadBackups, 1500); };
+  $("#bkPrune").onclick = async () => { const r = await act(() => api("POST", sp("/backups/prune"))); if (r) { toast(t("bk.freed", { n: fmtBytes(r.freed) })); loadBackups(); } };
+  $("#bkDelSel").onclick = async () => { if (await confirmDlg(t("bk.delSelQ", { n: sel.size }))) { await act(() => api("POST", sp("/backups/delete"), { names: [...sel] })); loadBackups(); } };
   $$("[data-rs]", el).forEach((b) => b.onclick = async () => { const n = d.backups[b.dataset.rs].name; if (await confirmDlg(t("bk.restoreQ", { n }))) { await act(() => api("POST", sp("/backups/restore"), { name: n }), t("ok.queued")); setTimeout(loadBackups, 1500); } });
   $$("[data-bd]", el).forEach((b) => b.onclick = async () => { const n = d.backups[b.dataset.bd].name; if (await confirmDlg(t("f.deleteQ", { n }))) { await act(() => api("POST", sp("/backups/delete"), { name: n })); loadBackups(); } });
 }
@@ -1141,6 +1153,8 @@ async function loadAutomation() {
   </div></div>
   <div class="card"><h3>${t("au.backups")}</h3><div class="form-grid">
     ${field(t("au.bInterval"), num("backup_interval_hours", 0.5))}${field(t("au.bKeep"), num("backup_keep"))}
+    ${field(t("au.bKeepOther"), num("backup_keep_other"))}${field(t("au.bMax"), num("backup_max_gb", 1), t("au.bMaxHint"))}
+    ${field(t("au.bComp"), sel("backup_compression", ["fast", "balanced", "max"].map((v) => [v, t("au.bc." + v)])), t("au.bCompHint"))}
     <div class="field">${chk("backup_include_worlds", t("au.bWorlds"))}${chk("backup_only_when_running", t("au.bRunning"))}</div>
   </div></div>
   <div class="card"><h3>${t("dl.title")}</h3><p class="muted small">${esc(t("dl.hint"))}</p>

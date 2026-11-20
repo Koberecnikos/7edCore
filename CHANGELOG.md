@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.10.0 - 2026-11-20
+- Backups no longer fill the disk: an automatic, scheduled or before-update backup is skipped when nothing changed
+  since the last backup (a server nobody plays on makes one backup, not a new one every few hours).
+- Mods and generated maps are stored once per change in backups/mods and backups/maps and shared by all backups
+  (they used to be copied into every backup - gigabytes each time). Restore brings them back; older backups still
+  restore as before.
+- Retention for every kind: last N automatic + scheduled, last N (default 3) of each before-update / before-restore /
+  import backup (these were never deleted before), optional size limit for all automatic backups. Manual backups are
+  only deleted by hand.
+- Compression setting: fast / balanced (default) / maximum, on the backup CPU core only.
+- Backups tab: total size, "Clean up now", multi-select delete, what each backup contains.
+
 ## 1.9.1 - 2026-11-18
 
 - Fix: after a panel update the browser could keep running the old interface from its cache (new version number, old screens). Script and style URLs now carry a content hash, so every update loads the new files

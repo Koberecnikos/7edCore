@@ -29,6 +29,9 @@ DEFAULT_SETTINGS = {
     "backup_keep": 10,
     "backup_include_worlds": True,  # include GeneratedWorlds (maps, hundreds of MB)
     "backup_only_when_running": True,
+    "backup_keep_other": 3,         # pre-update / pre-restore / pre-import backups kept (each kind)
+    "backup_max_gb": 0,             # all automatic backups of this server together at most (0 = no limit)
+    "backup_compression": "balanced",  # fast (zstd 3) | balanced (zstd 9) | max (zstd 19, long window - slow)
     "schedule": [],                 # [{"id","enabled","days":[1..7],"time":"HH:MM","action","warn":[min],"message"}]
     "shutdown_timeout": 150,
     "server_cpus": "auto",          # auto = all cores except the last one (reserved for backups)
@@ -878,44 +881,148 @@ class Instance:
         for f in sorted(self.backups.glob("*.tar.zst"), reverse=True):
             st = f.stat()
             kind = next((k for k in ("auto", "pre-restore", "pre-update", "pre-import") if f"_{k}" in f.name), "manual")
-            out.append({"name": f.name, "size": st.st_size, "mtime": st.st_mtime, "kind": kind})
+            meta = load_json(f.with_suffix(".json"), {}) if f.with_suffix(".json").exists() else {}
+            out.append({"name": f.name, "size": st.st_size, "mtime": st.st_mtime, "kind": kind,
+                        "mods": meta.get("mods"), "maps": meta.get("maps"), "worlds": bool(meta.get("maps") or meta.get("worlds")),
+                        "split": bool(meta)})
         return out
+
+    # The game data of a backup (saves, maps, config) and the mods are kept apart: mods are big and rarely change,
+    # so they are stored once per change in backups/mods/ and every backup only points at the right copy.
+    def _fingerprint(self, rels):
+        """count / size / newest change of everything under the given paths - equal = nothing changed."""
+        n = size = newest = 0
+        for r in rels:
+            p = self.dir / r
+            if p.is_file():
+                st = p.stat()
+                n, size, newest = n + 1, size + st.st_size, max(newest, st.st_mtime_ns)
+                continue
+            for root, _dirs, files in os.walk(p):
+                for fn in files:
+                    try:
+                        st = os.stat(os.path.join(root, fn))
+                    except OSError:
+                        continue
+                    n, size, newest = n + 1, size + st.st_size, max(newest, st.st_mtime_ns)
+        return f"{n}:{size}:{newest}"
+
+    ZSTD = {"fast": "zstd -T1 -3", "balanced": "zstd -T1 -9", "max": "zstd -T1 -19 --long=27"}
+
+    async def _tar(self, out, members, cwd):
+        part = out.with_name(out.name + ".part")
+        prog = self.ZSTD.get(self.settings.get("backup_compression"), self.ZSTD["balanced"])
+        cmd = ["nice", "-n", "19", "ionice", "-c", "3", "tar", "-I", prog, "-cf", str(part), "-C", str(cwd)] + members
+        bcpu = cpu_list(self.settings["backup_cpus"], str(NCPU - 1))
+        if bcpu and shutil.which("taskset"):
+            cmd = ["taskset", "-c", bcpu] + cmd
+        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        res, _ = await proc.communicate()
+        if proc.returncode not in (0, 1):     # 1 = a file changed while reading (game running) - fine
+            part.unlink(missing_ok=True)
+            raise web.HTTPInternalServerError(text="tar failed: " + res.decode(errors="replace")[-500:])
+        os.replace(part, out)
+        return bcpu
+
+    SNAP = {"mods": ("userdata/Mods", "userdata/Mods_disabled"), "maps": ("userdata/GeneratedWorlds",)}
+
+    async def _snapshot(self, what):
+        """Archive of mods / generated maps, made only when they changed (they are big and rarely change).
+        Returns its file name in backups/<what>/, or None when there is nothing."""
+        rels = [m for m in self.SNAP[what] if (self.dir / m).exists()]
+        if not rels:
+            return None
+        sig = self._fingerprint(rels)
+        sdir = self.backups / what
+        sdir.mkdir(exist_ok=True)
+        known = load_json(sdir / "index.json", {})
+        if sig in known and (sdir / known[sig]).exists():
+            return known[sig]
+        name = f"{what}_{stamp()}.tar.zst"
+        await self._tar(sdir / name, rels, self.dir)
+        known[sig] = name
+        save_json(sdir / "index.json", known)
+        return name
+
+    def _prune_mods_snapshots(self):
+        """Delete mods / maps archives no backup points at any more."""
+        bks = self.list_backups()
+        for what in self.SNAP:
+            sdir = self.backups / what
+            if not sdir.exists():
+                continue
+            used = {b.get(what) for b in bks}
+            for f in sdir.glob(f"{what}_*.tar.zst"):
+                if f.name not in used:
+                    f.unlink(missing_ok=True)
+            known = load_json(sdir / "index.json", {})
+            save_json(sdir / "index.json", {k: v for k, v in known.items() if (sdir / v).exists()})
+
+    def prune_backups(self):
+        """Retention: keep N auto backups, N of each pre-* kind, and the size limit for all automatic ones
+        (manual backups are only deleted by hand). Returns the bytes freed."""
+        freed = 0
+        bks = self.list_backups()
+
+        def drop(b):
+            nonlocal freed
+            f = self.backups / b["name"]
+            freed += b["size"]
+            f.unlink(missing_ok=True)
+            f.with_suffix(".json").unlink(missing_ok=True)
+        for b in [b for b in bks if b["kind"] == "auto"][int(self.settings["backup_keep"]):]:
+            drop(b)
+        for kind in ("pre-update", "pre-restore", "pre-import"):
+            for b in [b for b in bks if b["kind"] == kind][int(self.settings.get("backup_keep_other", 3)):]:
+                drop(b)
+        cap = float(self.settings.get("backup_max_gb") or 0) * 1024 ** 3
+        if cap:
+            left = [b for b in self.list_backups() if b["kind"] != "manual"]   # newest first
+            total = sum(b["size"] for b in left)
+            for b in reversed(left[1:]):                                        # never the newest one
+                if total <= cap:
+                    break
+                total -= b["size"]
+                drop(b)
+        self._prune_mods_snapshots()
+        return freed
 
     async def create_backup(self, kind="manual"):
         async with self.backup_lock:
-            members = [m for m in ("userdata/Saves", "userdata/Mods", "userdata/Mods_disabled", "config", "mods.json")
-                       if (self.dir / m).exists()]
-            if self.settings["backup_include_worlds"] and (self.userdata / "GeneratedWorlds").exists():
-                members.append("userdata/GeneratedWorlds")
+            members = [m for m in ("userdata/Saves", "config", "mods.json") if (self.dir / m).exists()]
+            worlds = bool(self.settings["backup_include_worlds"] and (self.userdata / "GeneratedWorlds").exists())
             if not (self.userdata / "Saves").exists():
                 raise web.HTTPConflict(text="Nothing to back up yet (no saved games)")
+            if self.tw:
+                await self.command("saveworld", timeout=20, idle=2, quiet=True)
+                await asyncio.sleep(3)
+            # nothing changed since the last backup (e.g. nobody played): an automatic backup would only copy the
+            # same data again - skip it. A manual backup is always made.
+            sig = "|".join([self._fingerprint(members), str(worlds), self.settings.get("backup_compression", ""),
+                            self._fingerprint([m for m in ("userdata/Mods", "userdata/Mods_disabled") if (self.dir / m).exists()])]
+                           + ([self._fingerprint(["userdata/GeneratedWorlds"])] if worlds else []))
+            last = self.pstate.get("last_backup_file")
+            if kind != "manual" and sig == self.pstate.get("last_backup_sig") and last and (self.backups / last).exists():
+                self.note(f"Backup ({kind}) skipped - nothing changed since {last}")
+                if kind == "auto":
+                    self.save_pstate(last_auto_backup=now_ts())
+                return last
             self.set_busy(f"Backup ({kind})")
             try:
-                if self.tw:
-                    await self.command("saveworld", timeout=20, idle=2, quiet=True)
-                    await asyncio.sleep(3)
-                name = f"{stamp()}_{kind}.tar.zst"
-                part = self.backups / (name + ".part")
-                cmd = ["nice", "-n", "19", "ionice", "-c", "3", "tar", "--zstd", "-cf", str(part),
-                       "-C", str(self.dir)] + members
-                bcpu = cpu_list(self.settings["backup_cpus"], str(NCPU - 1))
-                if bcpu and shutil.which("taskset"):
-                    cmd = ["taskset", "-c", bcpu] + cmd
                 t0 = time.monotonic()
-                proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE,
-                                                            stderr=asyncio.subprocess.STDOUT)
-                out, _ = await proc.communicate()
-                if proc.returncode not in (0, 1):     # 1 = a file changed while reading (game running) - fine
-                    part.unlink(missing_ok=True)
-                    raise web.HTTPInternalServerError(text="tar failed: " + out.decode(errors="replace")[-500:])
-                os.replace(part, self.backups / name)
+                mods = await self._snapshot("mods")
+                maps = await self._snapshot("maps") if worlds else None
+                name = f"{stamp()}_{kind}.tar.zst"
+                bcpu = await self._tar(self.backups / name, members, self.dir)
+                save_json((self.backups / name).with_suffix(".json"), {"mods": mods, "maps": maps, "kind": kind})
                 size = (self.backups / name).stat().st_size
-                self.note(f"Backup done: {name} ({size / 1048576:.1f} MB, {time.monotonic() - t0:.0f} s, core {bcpu})")
-                self.save_pstate(last_backup=now_ts(), **({"last_auto_backup": now_ts()} if kind == "auto" else {}))
-                if kind == "auto":
-                    autos = [b for b in self.list_backups() if b["kind"] == "auto"]
-                    for b in autos[int(self.settings["backup_keep"]):]:
-                        (self.backups / b["name"]).unlink(missing_ok=True)
+                self.note(f"Backup done: {name} ({size / 1048576:.1f} MB, {time.monotonic() - t0:.0f} s, core {bcpu})"
+                          + (f", mods {mods}" if mods else "") + (f", maps {maps}" if maps else ""))
+                self.save_pstate(last_backup=now_ts(), last_backup_sig=sig, last_backup_file=name,
+                                 **({"last_auto_backup": now_ts()} if kind == "auto" else {}))
+                freed = self.prune_backups()
+                if freed:
+                    self.note(f"Old backups removed: {freed / 1048576:.0f} MB freed")
                 return name
             finally:
                 self.set_busy("")
@@ -950,7 +1057,29 @@ class Instance:
                             dst.unlink()
                         dst.parent.mkdir(parents=True, exist_ok=True)
                         shutil.move(str(src), str(dst))
+                meta = load_json(f.with_suffix(".json"), {}) if f.with_suffix(".json").exists() else {}
+                for what, rels in self.SNAP.items():
+                    snap = self.backups / what / str(meta.get(what) or "")
+                    if not meta.get(what) or not snap.is_file():
+                        continue
+                    mt = Path(tempfile.mkdtemp(dir=self.dir, prefix=f".restore_{what}_"))
+                    proc = await asyncio.create_subprocess_exec("tar", "--zstd", "-xf", str(snap), "-C", str(mt),
+                                                                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+                    await proc.communicate()
+                    if proc.returncode == 0:
+                        for m in rels:
+                            dst = self.dir / m
+                            if dst.is_dir():
+                                await asyncio.to_thread(shutil.rmtree, dst)
+                            if (mt / m).exists():
+                                dst.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.move(str(mt / m), str(dst))
+                    else:
+                        self.note(f"Restore: {what} of this backup could not be extracted - left as they are")
+                    shutil.rmtree(mt, ignore_errors=True)
                 shutil.rmtree(tmp, ignore_errors=True)
+                self.pstate.pop("last_backup_sig", None)
+                self.save_pstate()
                 self.ensure_config()
                 self.mods = Mods(self)
                 self.note(f"Restored from {f.name}")
