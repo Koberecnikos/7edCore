@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.1 - 2026-11-23
+- Overview: a card with the number of active mods (plus how many are disabled and how many have an update), with a
+  link to the Mods tab.
+
 ## 1.11.0 - 2026-11-20
 - Mods are no longer backed up at all. They are already installed in the server's Mods folder; a backup now holds
   saves, config and the generated map, and records the list of mods (name + version) the world was played with.

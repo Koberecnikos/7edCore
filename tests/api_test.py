@@ -1,5 +1,5 @@
 """End-to-end API test against fake steamcmd + fake server. Usage: python3 api_test.py http://127.0.0.1:18200 pass"""
-import asyncio, io, json, sys, time, zipfile
+import asyncio, io, json, os, sys, time, zipfile
 import aiohttp
 
 URL, PW = sys.argv[1], sys.argv[2]
@@ -327,6 +327,8 @@ async def main():
         check(len(d["backups"]) == n0 + 1 and d["backups"][0]["kind"] == "auto", "changed save -> new automatic backup")
         check(not _os2.path.exists(bdir + "/mods"), "mods are not backed up")
         st, d = await j("GET", P + "/status")
+        on = len([x for x in os.listdir(udir + "/Mods") if os.path.isdir(udir + "/Mods/" + x)]) if os.path.isdir(udir + "/Mods") else 0
+        check(d["mods"]["active"] == on and isinstance(d["mods"]["disabled"], int), f"status counts active mods {d['mods']} (on disk {on})")
         check(d["has_world"] and d["mods_changed"] and "BrokenMod" in d["mods_changed"]["removed"],
               f"deleting a mod the world was played with is reported {d.get('mods_changed')}")
         st, d = await j("POST", P + "/settings", json={"backup_keep": 0})

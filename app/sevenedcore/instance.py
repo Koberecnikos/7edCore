@@ -166,6 +166,14 @@ class Instance:
                 "web": get_prop(self.cfg, "WebDashboardPort"),
                 "web_enabled": get_prop(self.cfg, "WebDashboardEnabled") == "true"}
 
+    def mods_count(self):
+        """Enabled / disabled mod folders (overview card)."""
+        try:
+            off = sum(1 for d in self.mods.off.iterdir() if d.is_dir()) if self.mods.off.exists() else 0
+        except OSError:
+            off = 0
+        return {"active": len(self.modlist()), "disabled": off}
+
     def status(self):
         st = self.hub.steam
         return {
@@ -179,7 +187,7 @@ class Instance:
             "game": {"branch": self.branch, "installed": st.installed(self.branch), "version": self.game_version_label(),
                      "build": st.installed_build(self.branch), "busy": st.busy, "progress": st.progress},
             "compat": self.compat_check(), "notices": self.notices,
-            "has_world": self.has_world(), "mods_changed": self.mods_changed(),
+            "has_world": self.has_world(), "mods_changed": self.mods_changed(), "mods": self.mods_count(),
             "ram_limit_gb": self.settings.get("ram_limit_gb"), "pending": self.pending_what,
             "preset": self.settings.get("preset"), "preset_stack": self.settings.get("preset_stack") or [],
             "daylen": {"enabled": bool(self.settings.get("daylen_dynamic")), "applied": self.daylen_applied,

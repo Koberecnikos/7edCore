@@ -362,6 +362,9 @@ function renderOverview() {
     ${card(t("ov.time"), esc(st.gametime || "–"), [st.started_at ? esc(t("ov.up", { d: fmtDur(Date.now() / 1000 - st.started_at) })) : "",
       st.daylen?.enabled && live() ? (st.daylen.frozen ? "⏸ " + esc(t("dl.paused")) : st.daylen.applied ? "☀ " + esc(t("dl.short", { n: st.daylen.applied })) : "") : ""].filter(Boolean).join(" · "))}
     ${card(t("ov.world"), esc(w.GameWorld || "–"), esc(w.GameName || ""))}
+    ${card(t("ov.mods"), st.mods ? String(st.mods.active) : "–", [st.mods ? esc(t("ov.modsSub", { n: st.mods.disabled })) : "",
+      (st.notices?.mods || []).length ? esc(t("ov.modsUpd", { n: st.notices.mods.length })) : "",
+      isAdmin() ? `<a href="#" id="ovMods">${esc(t("ov.modsOpen"))}</a>` : ""].filter(Boolean).join(" · "))}
     ${card(t("ov.version"), esc(g.version || "?"), esc(g.branch + (g.build ? " · build " + g.build : "")))}
     ${card(t("ov.cpu"), live() && s.srv_cpu != null ? s.srv_cpu + " %" : "–", s.host_cpu != null ? `${esc(t("ov.machine"))} ${s.host_cpu} % · load ${(s.load || []).map((x) => x.toFixed(2)).join(" ")}` : "")}
     ${card(t("ov.ram"), live() && s.srv_mem ? fmtBytes(s.srv_mem) : "–", (lim ? esc(t("ov.limit", { n: lim })) + " · " : "") + (s.host_mem_total ? `${esc(t("ov.machine"))} ${fmtBytes(s.host_mem)} / ${fmtBytes(s.host_mem_total)}` : ""))}
@@ -374,6 +377,7 @@ function renderOverview() {
   </div>`;
   $("#tab-overview").append(quickActions());
   const fb = $("#ovFps"); if (fb) fb.onclick = async (e) => { e.preventDefault(); const r = await act(() => api("POST", sp("/quick/fps"))); if (r) { S.status.meminfo = r.meminfo; renderOverview(); } };
+  const om = $("#ovMods"); if (om) om.onclick = (e) => { e.preventDefault(); openTab("mods"); };
   const bi = $("#ovInstall"); if (bi) bi.onclick = () => act(() => api("POST", `/api/versions/${g.branch}/install`), t("ok.queued"));
 }
 
