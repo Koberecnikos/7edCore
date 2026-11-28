@@ -16,6 +16,8 @@ import ipaddress
 import os
 import re
 import secrets
+import socket
+import struct
 
 from aiohttp import web
 
@@ -112,15 +114,55 @@ def drop_sessions(user, keep=None):
     save_sessions()
 
 
-def _cookie(resp, tok):
-    resp.set_cookie(COOKIE, tok, max_age=SESSION_TTL, httponly=True, samesite="Strict")
+# ------------------------------------------------------------------ behind a reverse proxy (the Hub portal)
+def _gateway():
+    """The container's default gateway = the host. Connections from the host side (the portal on 127.0.0.1:8120)
+    arrive from it; outside clients keep their own address, so their X-Forwarded-For is never believed."""
+    try:
+        with open("/proc/net/route") as f:
+            for line in f.read().splitlines()[1:]:
+                p = line.split()
+                if len(p) > 2 and p[1] == "00000000":
+                    return socket.inet_ntoa(struct.pack("<L", int(p[2], 16)))
+    except (OSError, ValueError):
+        pass
+    return None
 
 
-def _new_session(resp, user):
+_env_proxies = [x.strip() for x in os.environ.get("SEVENEDCORE_TRUSTED_PROXIES", "").split(",") if x.strip()]
+TRUSTED_PROXIES = set(_env_proxies) if _env_proxies else ({_gateway()} - {None})
+PREFIX_RE = re.compile(r"^/[A-Za-z0-9_-]{1,32}$")
+
+
+def trusted(request):
+    return (request.remote or "") in TRUSTED_PROXIES
+
+
+def client_ip(request):
+    """Real client address: the last X-Forwarded-For entry when the request came through the trusted proxy."""
+    if trusted(request):
+        fwd = request.headers.get("X-Forwarded-For", "")
+        if fwd:
+            return fwd.split(",")[-1].strip()
+    return request.remote or "?"
+
+
+def prefix(request):
+    """Path the portal serves the panel under ("/7d"); "" when opened directly."""
+    p = request.headers.get("X-Forwarded-Prefix", "").rstrip("/") if trusted(request) else ""
+    return p if PREFIX_RE.match(p) else ""
+
+
+def _cookie(resp, tok, request):
+    # only for the panel's own path: behind the portal other apps on the same address never see the session
+    resp.set_cookie(COOKIE, tok, max_age=SESSION_TTL, httponly=True, samesite="Strict", path=prefix(request) + "/")
+
+
+def _new_session(resp, user, request):
     tok = secrets.token_urlsafe(32)
     SESSIONS[tok] = {"exp": now_ts() + SESSION_TTL, "user": user}
     save_sessions()
-    _cookie(resp, tok)
+    _cookie(resp, tok, request)
 
 
 def _private(ip):
@@ -206,7 +248,7 @@ async def middleware(request, handler):
             save_sessions()
             resp = await handler(request)
             if isinstance(resp, web.StreamResponse) and not resp.prepared:
-                _cookie(resp, tok)
+                _cookie(resp, tok, request)
             return resp
     return await handler(request)
 
@@ -220,18 +262,18 @@ async def h_session(request):
 async def h_setup(request):
     if not setup_needed():
         raise web.HTTPConflict(text="The panel is already set up")
-    if not _private(request.remote or ""):
+    if not _private(client_ip(request)):
         raise web.HTTPForbidden(text="First-time setup is only allowed from your local network")
     d = await request.json()
     name = str(d.get("username", "")).strip() or "admin"
     add_user(name, str(d.get("password", "")), "admin", "*")
     resp = web.json_response({"ok": True})
-    _new_session(resp, name)
+    _new_session(resp, name, request)
     return resp
 
 
 async def h_login(request):
-    ip = request.remote or "?"
+    ip = client_ip(request)
     f = FAILS.get(ip, [0, 0])
     if f[0] >= 5 and now_ts() - f[1] < 900:
         raise web.HTTPTooManyRequests(text="Too many attempts - try again in 15 minutes")
@@ -245,7 +287,7 @@ async def h_login(request):
         raise web.HTTPUnauthorized(text="Wrong user name or password")
     FAILS.pop(ip, None)
     resp = web.json_response({"ok": True})
-    _new_session(resp, name)
+    _new_session(resp, name, request)
     return resp
 
 
@@ -253,7 +295,7 @@ async def h_logout(request):
     SESSIONS.pop(request.cookies.get(COOKIE), None)
     save_sessions()
     resp = web.json_response({"ok": True})
-    resp.del_cookie(COOKIE)
+    resp.del_cookie(COOKIE, path=prefix(request) + "/")
     return resp
 
 

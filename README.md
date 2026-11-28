@@ -237,6 +237,14 @@ These are environment variables in `compose.yaml`:
 | `MAX_SERVERS` | `4` | each server needs 10 game ports and 1 web map port, so publish the matching ranges |
 | `PANEL_PASSWORD` | – | keeps an `admin` account with this password, instead of first-run setup |
 | `GAME_PORT_BASE` / `WEB_PORT_BASE` | `26900` / `8080` | server *k* uses base + 10·k for the game and base + k for the web map |
+| `SEVENEDCORE_TRUSTED_PROXIES` | the container's gateway | addresses whose `X-Forwarded-For` / `X-Forwarded-Prefix` are believed |
+
+### Behind a reverse proxy
+
+The panel can live under a path, e.g. `https://example.org/7d/`: the proxy strips the prefix and sends
+`X-Forwarded-Prefix: /7d` and `X-Forwarded-For`. The page then gets a matching `<base href>` (all URLs in the app are
+relative), the session cookie is limited to that path, and failed logins are counted per real client address.
+A proxy on the Docker host is trusted automatically (connections from the host arrive from the container's gateway).
 
 ## Development
 

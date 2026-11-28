@@ -27,14 +27,17 @@ INDEX = None
 
 
 async def h_index(request):
+    """The page has <base href> = where the panel lives for this browser: "/" or, behind the Hub portal, "/7d/".
+    Every URL in the app is relative to it."""
     global INDEX
     if INDEX is None:
         tag = _asset_tag()
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         for name in ("style.css", "i18n.js", "app.js"):
-            html = html.replace(f'"/static/{name}"', f'"/static/{name}?v={tag}"')
+            html = html.replace(f'"static/{name}"', f'"static/{name}?v={tag}"')
         INDEX = html
-    return web.Response(text=INDEX, content_type="text/html", headers={"Cache-Control": "no-cache, no-store"})
+    return web.Response(text=INDEX.replace("{{base}}", auth.prefix(request) + "/"), content_type="text/html",
+                        headers={"Cache-Control": "no-cache, no-store"})
 
 
 @web.middleware

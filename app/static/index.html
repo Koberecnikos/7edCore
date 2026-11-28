@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="{{base}}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>7edCore</title>
-<link rel="icon" href="/static/favicon.png">
-<link rel="apple-touch-icon" href="/static/icon.png">
-<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="static/favicon.png">
+<link rel="apple-touch-icon" href="static/icon.png">
+<link rel="stylesheet" href="static/style.css">
 </head>
 <body>
 <div id="conn" hidden><span data-i="conn.lost"></span></div>
@@ -14,7 +15,7 @@
 
 <div id="gate" hidden>
   <form id="gateForm">
-    <img src="/static/banner.jpg" alt="7edCore" class="banner">
+    <img src="static/banner.jpg" alt="7edCore" class="banner">
     <h2 id="gateTitle"></h2>
     <p id="gateText" class="muted"></p>
     <input id="gateUser" autocomplete="username" autocapitalize="off" spellcheck="false">
@@ -28,7 +29,7 @@
 
 <div id="app" hidden>
   <div id="top">
-    <a class="brand" href="#" title="7edCore"><img src="/static/favicon.png" alt=""><b class="r">7</b>ed<b class="r">Core</b></a>
+    <a class="brand" href="#" title="7edCore"><img src="static/favicon.png" alt=""><b class="r">7</b>ed<b class="r">Core</b></a>
     <div id="srvTabs"></div>
     <button id="btnNew" class="srv-add admin-only" data-ititle="top.new">＋</button>
     <span class="sp"></span>
@@ -96,7 +97,7 @@
 </dialog>
 <div id="toasts"></div>
 <input type="file" id="filePick" hidden>
-<script src="/static/i18n.js"></script>
-<script src="/static/app.js"></script>
+<script src="static/i18n.js"></script>
+<script src="static/app.js"></script>
 </body>
 </html>

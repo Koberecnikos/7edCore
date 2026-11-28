@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.0 - 2026-11-28
+- Works behind a reverse proxy under a path (e.g. a portal that shows the panel at /7d/): the page gets
+  `<base href>` from `X-Forwarded-Prefix`, every URL in the app is relative, the session cookie is limited to the
+  panel's path, and the login limit and first-time setup use the real client address from `X-Forwarded-For`.
+  Both headers are believed only from the Docker host (the container's gateway) or `SEVENEDCORE_TRUSTED_PROXIES`.
+
 ## 1.11.1 - 2026-11-23
 - Overview: a card with the number of active mods (plus how many are disabled and how many have an update), with a
   link to the Mods tab.

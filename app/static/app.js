@@ -12,7 +12,7 @@ const h = (html) => { const tpl = document.createElement("template"); tpl.innerH
 let CUR = null, OV = { instances: [] }, S = { status: {}, stats: {}, settings: {} }, META = null, PRESETS = [], PRESET_GROUPS = [];
 let TAB = "overview", ES = null, OFFLINE = false, ME = { role: "viewer" };
 const isAdmin = () => ME.role === "admin";
-const sp = (p) => `/api/s/${encodeURIComponent(CUR)}${p}`;
+const sp = (p) => `api/s/${encodeURIComponent(CUR)}${p}`;
 
 // ------------------------------------------------------------------ API + connection state
 class ApiError extends Error { constructor(msg, status, data) { super(msg); this.status = status; this.data = data; } }
@@ -55,7 +55,7 @@ async function api(method, url, body) {
     if (!quiet) activity(-1);
   }
   setOffline(false);
-  if (r.status === 401 && !url.startsWith("/api/login")) { showGate(false); throw new ApiError("401", 401); }
+  if (r.status === 401 && !url.startsWith("api/login")) { showGate(false); throw new ApiError("401", 401); }
   let data = {};
   try { data = await r.json(); } catch { /* empty */ }
   if (!r.ok) throw new ApiError(data.error || r.statusText, r.status, data);
@@ -65,7 +65,7 @@ function setOffline(v) {
   if (v === OFFLINE) return;
   OFFLINE = v;
   $("#conn").hidden = !v;
-  if (v) { const ping = async () => { try { await fetch("/api/session"); setOffline(false); reconnect(); } catch { setTimeout(ping, 3000); } }; setTimeout(ping, 3000); }
+  if (v) { const ping = async () => { try { await fetch("api/session"); setOffline(false); reconnect(); } catch { setTimeout(ping, 3000); } }; setTimeout(ping, 3000); }
 }
 function reconnect() { if (CUR) { openEvents(); loadOverview(); } }
 function toast(msg, err) {
@@ -175,26 +175,26 @@ $("#gateForm").onsubmit = async (e) => {
     if (GATE_SETUP) {
       if (pw.length < 8) throw new Error(t("setup.short"));
       if (pw !== $("#gatePw2").value) throw new Error(t("setup.mismatch"));
-      await api("POST", "/api/setup", { username: $("#gateUser").value.trim(), password: pw });
-    } else await api("POST", "/api/login", { username: $("#gateUser").value.trim(), password: pw });
+      await api("POST", "api/setup", { username: $("#gateUser").value.trim(), password: pw });
+    } else await api("POST", "api/login", { username: $("#gateUser").value.trim(), password: pw });
     try { localStorage.setItem("lastUser", $("#gateUser").value.trim()); } catch { /* private mode */ }
     $("#gatePw").value = $("#gatePw2").value = "";
     boot();
   } catch (err) { $("#gateErr").textContent = err.message; }
 };
-$("#btnLogout").onclick = async () => { await api("POST", "/api/logout", {}).catch(() => {}); location.hash = ""; location.reload(); };
+$("#btnLogout").onclick = async () => { await api("POST", "api/logout", {}).catch(() => {}); location.hash = ""; location.reload(); };
 
 // ------------------------------------------------------------------ boot, server tabs, overview polling
 async function boot() {
   let s;
-  try { s = await (await fetch("/api/session")).json(); } catch { setOffline(true); setTimeout(boot, 3000); return; }
+  try { s = await (await fetch("api/session")).json(); } catch { setOffline(true); setTimeout(boot, 3000); return; }
   if (!s.ok) return showGate(s.setup);
   ME = s.user;
   document.body.dataset.role = ME.role;
   $("#meInfo").textContent = `${ME.name} · ${t("role." + ME.role)}`;
   $("#gate").hidden = true; $("#app").hidden = false;
   let pr;
-  [META, pr] = await Promise.all([api("GET", "/api/configmeta"), api("GET", "/api/presets")]);
+  [META, pr] = await Promise.all([api("GET", "api/configmeta"), api("GET", "api/presets")]);
   PRESETS = pr.presets; PRESET_GROUPS = pr.groups || ["themed"];
   await loadOverview();
   const [hid, htab] = decodeURIComponent(location.hash.slice(1)).split("/");
@@ -202,7 +202,7 @@ async function boot() {
   setInterval(() => { if (!OFFLINE && !$("#app").hidden) loadOverview(); }, 10000);
 }
 async function loadOverview() {
-  try { OV = await api("GET", "/api/overview"); } catch { return; }
+  try { OV = await api("GET", "api/overview"); } catch { return; }
   renderTabs(); renderNotices();
   $("#steamInfo").textContent = OV.steam_busy ? `SteamCMD ${OV.steam_busy} ${OV.steam_progress ?? 0} %` : "";
 }
@@ -308,7 +308,7 @@ function renderNotices() {
     const u = n.game_update;
     const el = h(`<div class="notice${u.kind === "major" ? " bad" : ""}"><span>${esc(t("notice.game", { b: S.status.game?.branch, cur: u.current, target: u.target || "build " + u.build, kind: t("kind." + u.kind) }))}</span>
       <span class="muted small">${esc(t("notice.gamePolicy"))}</span><span class="sp"></span><button class="small primary">${esc(t("act.update"))}</button></div>`).firstChild;
-    el.querySelector("button").onclick = async () => { if (u.kind !== "major" || await confirmDlg(t("kind.major"))) act(() => api("POST", `/api/versions/${S.status.game.branch}/update`), t("ok.queued")); };
+    el.querySelector("button").onclick = async () => { if (u.kind !== "major" || await confirmDlg(t("kind.major"))) act(() => api("POST", `api/versions/${S.status.game.branch}/update`), t("ok.queued")); };
     box.append(el);
   }
   if (n.mods?.length && $("#pageView").hidden) {
@@ -378,7 +378,7 @@ function renderOverview() {
   $("#tab-overview").append(quickActions());
   const fb = $("#ovFps"); if (fb) fb.onclick = async (e) => { e.preventDefault(); const r = await act(() => api("POST", sp("/quick/fps"))); if (r) { S.status.meminfo = r.meminfo; renderOverview(); } };
   const om = $("#ovMods"); if (om) om.onclick = (e) => { e.preventDefault(); openTab("mods"); };
-  const bi = $("#ovInstall"); if (bi) bi.onclick = () => act(() => api("POST", `/api/versions/${g.branch}/install`), t("ok.queued"));
+  const bi = $("#ovInstall"); if (bi) bi.onclick = () => act(() => api("POST", `api/versions/${g.branch}/install`), t("ok.queued"));
 }
 
 let QA_MIN = "5";
@@ -475,7 +475,7 @@ async function loadPlayers() {
 
 // ------------------------------------------------------------------ world
 let VERS = null;
-async function getVersions(refresh) { VERS = await api("GET", "/api/versions" + (refresh ? "?refresh=1" : "")); return VERS; }
+async function getVersions(refresh) { VERS = await api("GET", "api/versions" + (refresh ? "?refresh=1" : "")); return VERS; }
 function versionOptions(sel) {
   const list = (VERS?.branches || []).filter((b) => !b.password);
   return list.map((b) => `<option value="${esc(b.name)}"${b.name === sel ? " selected" : ""}>${esc(b.name)} - ${esc(b.version || b.description || "?")}${b.installed ? " ✓" : ""}</option>`).join("");
@@ -767,7 +767,7 @@ async function presetDialog(req) {
   }
 }
 async function importConfigDialog() {
-  const ex = await act(() => api("GET", "/api/exports"));
+  const ex = await act(() => api("GET", "api/exports"));
   if (!ex) return;
   const others = ex.servers.filter((x) => x.id !== CUR);
   const body = h(`<div class="field"><label>${t("cx.from")}</label>
@@ -1094,7 +1094,7 @@ async function loadBackups() {
     ${d.backups.map((b, i) => `<tr><td><input type="checkbox" data-sel="${i}"></td><td>${esc(b.name)}</td><td><span class="tag">${esc(t("bk.kind." + b.kind))}</span></td>
       <td class="small muted">${!b.split ? t("bk.old") : [t("bk.saves"), b.worlds ? t("bk.maps") : "", b.mods != null ? t("bk.modlist", { n: b.mods }) : ""].filter(Boolean).join(" + ")}</td>
       <td class="num">${fmtBytes(b.size)}</td><td>${fmtTime(b.mtime)}</td>
-      <td class="row"><a class="small admin-only" href="/api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small op-only" data-rs="${i}">${t("act.restore")}</button><button class="small danger admin-only" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
+      <td class="row"><a class="small admin-only" href="api/files/download?path=${encodeURIComponent(d.path + "/" + b.name)}">${t("act.download")}</a><button class="small op-only" data-rs="${i}">${t("act.restore")}</button><button class="small danger admin-only" data-bd="${i}">${t("act.delete")}</button></td></tr>`).join("")}</table>`
     : `<p class="empty">${esc(t("bk.none"))}</p>`}`;
   const upd = () => { $("#bkDelSel").disabled = !sel.size; $("#bkDelSel").textContent = sel.size ? `${t("bk.delSel")} (${sel.size})` : t("bk.delSel"); };
   $$("[data-sel]", el).forEach((c) => c.onchange = () => { const n = d.backups[c.dataset.sel].name; c.checked ? sel.add(n) : sel.delete(n); upd(); });
@@ -1120,7 +1120,7 @@ async function loadBackups() {
 let FPATH = null;
 async function loadFiles(path) {
   const el = $("#tab-files");
-  const d = await act(() => api("GET", "/api/files?path=" + encodeURIComponent(path)));
+  const d = await act(() => api("GET", "api/files?path=" + encodeURIComponent(path)));
   if (!d) { if (path !== "/") loadFiles("/"); return; }
   FPATH = d.path;
   const parts = d.path.split("/").filter(Boolean);
@@ -1131,27 +1131,27 @@ async function loadFiles(path) {
     <table><tr><th>${t("f.name")}</th><th class="num">${t("f.size")}</th><th>${t("f.changed")}</th><th></th></tr>
     ${parts.length ? `<tr><td><span class="fname dir" data-p="/${parts.slice(0, -1).join("/")}">..</span></td><td></td><td></td><td></td></tr>` : ""}
     ${d.items.map((f, i) => `<tr><td><span class="fname${f.dir ? " dir" : ""}" data-i="${i}">${f.dir ? "📁 " : ""}${esc(f.name)}</span></td><td class="num">${f.dir ? "" : fmtBytes(f.size)}</td><td>${fmtTime(f.mtime)}</td>
-      <td class="row">${f.dir ? "" : `<a class="small" href="/api/files/download?path=${encodeURIComponent(full(f.name))}">${t("act.download")}</a>`}
+      <td class="row">${f.dir ? "" : `<a class="small" href="api/files/download?path=${encodeURIComponent(full(f.name))}">${t("act.download")}</a>`}
       ${/\.zip$/i.test(f.name) ? `<button class="small" data-x="${i}">${t("f.extract")}</button>` : ""}
       <button class="small" data-rn="${i}">${t("act.rename")}</button><button class="small danger" data-rm="${i}">${t("act.delete")}</button></td></tr>`).join("")}
     </table>${d.items.length ? "" : `<p class="empty">${esc(t("f.empty"))}</p>`}`;
   $$("[data-p]", el).forEach((a) => a.onclick = () => loadFiles(a.dataset.p || "/"));
   $$(".fname[data-i]", el).forEach((a) => a.onclick = () => { const f = d.items[a.dataset.i]; f.dir ? loadFiles(full(f.name)) : editFile(full(f.name)); });
-  $$("[data-x]", el).forEach((b) => b.onclick = async () => { await act(() => api("POST", "/api/files/extract", { path: full(d.items[b.dataset.x].name) }), t("ok.saved")); loadFiles(d.path); });
-  $$("[data-rn]", el).forEach((b) => b.onclick = async () => { const f = d.items[b.dataset.rn]; const n = await promptDlg(t("act.rename"), t("f.name"), f.name); if (n && n !== f.name) { await act(() => api("POST", "/api/files/rename", { path: full(f.name), newname: n })); loadFiles(d.path); } });
-  $$("[data-rm]", el).forEach((b) => b.onclick = async () => { const f = d.items[b.dataset.rm]; if (await confirmDlg(t("f.deleteQ", { n: f.name }))) { await act(() => api("POST", "/api/files/delete", { path: full(f.name) })); loadFiles(d.path); } });
-  $("#fMk").onclick = async () => { const n = await promptDlg(t("f.newFolder"), t("f.name")); if (n) { await act(() => api("POST", "/api/files/mkdir", { path: full(n) })); loadFiles(d.path); } };
-  $("#fUp").onclick = () => pickFile("", async (file) => { const fd = new FormData(); fd.append("file", file); await act(() => api("POST", "/api/files/upload?path=" + encodeURIComponent(d.path), fd), t("ok.saved")); loadFiles(d.path); });
+  $$("[data-x]", el).forEach((b) => b.onclick = async () => { await act(() => api("POST", "api/files/extract", { path: full(d.items[b.dataset.x].name) }), t("ok.saved")); loadFiles(d.path); });
+  $$("[data-rn]", el).forEach((b) => b.onclick = async () => { const f = d.items[b.dataset.rn]; const n = await promptDlg(t("act.rename"), t("f.name"), f.name); if (n && n !== f.name) { await act(() => api("POST", "api/files/rename", { path: full(f.name), newname: n })); loadFiles(d.path); } });
+  $$("[data-rm]", el).forEach((b) => b.onclick = async () => { const f = d.items[b.dataset.rm]; if (await confirmDlg(t("f.deleteQ", { n: f.name }))) { await act(() => api("POST", "api/files/delete", { path: full(f.name) })); loadFiles(d.path); } });
+  $("#fMk").onclick = async () => { const n = await promptDlg(t("f.newFolder"), t("f.name")); if (n) { await act(() => api("POST", "api/files/mkdir", { path: full(n) })); loadFiles(d.path); } };
+  $("#fUp").onclick = () => pickFile("", async (file) => { const fd = new FormData(); fd.append("file", file); await act(() => api("POST", "api/files/upload?path=" + encodeURIComponent(d.path), fd), t("ok.saved")); loadFiles(d.path); });
 }
 async function editFile(path) {
-  const d = await act(() => api("GET", "/api/files/read?path=" + encodeURIComponent(path)));
+  const d = await act(() => api("GET", "api/files/read?path=" + encodeURIComponent(path)));
   if (!d) return;
   const el = $("#tab-files");
   el.innerHTML = `<div class="row" style="margin-bottom:8px"><b class="crumbs">${esc(d.path)}</b><span class="sp"></span><button id="edBack">${t("act.back")}</button><button class="primary" id="edSave">${t("act.save")}</button></div>
     <textarea id="editor" spellcheck="false"></textarea>`;
   $("#editor").value = d.content;
   $("#edBack").onclick = () => loadFiles(d.path.replace(/\/[^/]*$/, "") || "/");
-  $("#edSave").onclick = () => act(() => api("POST", "/api/files/write", { path: d.path, content: $("#editor").value }), t("f.saved"));
+  $("#edSave").onclick = () => act(() => api("POST", "api/files/write", { path: d.path, content: $("#editor").value }), t("f.saved"));
 }
 
 // ------------------------------------------------------------------ automation (schedule, updates, resources, backups)
@@ -1231,7 +1231,7 @@ async function loadAutomation() {
     const v = inp.type === "checkbox" ? inp.checked : inp.value;
     act(() => api("POST", sp("/settings"), { [inp.dataset.set]: v }), t("ok.saved"));
   });
-  $("#chkNow").onclick = async () => { $("#chkNow").disabled = true; await act(() => api("POST", "/api/updates/check")); $("#chkNow").disabled = false; loadOverview(); };
+  $("#chkNow").onclick = async () => { $("#chkNow").disabled = true; await act(() => api("POST", "api/updates/check")); $("#chkNow").disabled = false; loadOverview(); };
   const dlVals = () => Object.fromEntries($$("[data-dl]", el).map((i) => [i.dataset.dl, Number(i.value)]));
   const dlPreview = () => {
     const v = dlVals(), base = v.daylen_base || S.status.daylen?.configured || 60, lo = Math.min(v.daylen_min, v.daylen_max), hi = Math.max(v.daylen_min, v.daylen_max);
@@ -1277,7 +1277,7 @@ async function newServerDialog(cloneFrom = "") {
   $("#nClone", body).onchange = sync;
   setTimeout(sync);
   if (!await dialog(cloneFrom ? t("new.dupTitle") : t("new.title"), body, cloneFrom ? t("new.dup") : t("act.add"))) return;
-  const r = await act(() => api("POST", "/api/servers", { name: $("#nName").value, game_version: $("#nVer").value, clone_from: $("#nClone").value,
+  const r = await act(() => api("POST", "api/servers", { name: $("#nName").value, game_version: $("#nVer").value, clone_from: $("#nClone").value,
     clone_world: $("#nWorld").checked, port: Number($("#nPort").value) }), $("#nClone").value ? t("new.copying") : "");
   if (r) { await loadOverview(); selectServer(r.id); }
 }
@@ -1303,7 +1303,7 @@ async function pageVersions() {
           <button class="small" data-gv="${i}">${t("act.validate")}</button>${(b.used_by || []).length ? "" : `<button class="small danger" data-gr="${i}">${t("act.remove")}</button>`}`
         : `<button class="small" data-gi="${i}">${t("act.install")}</button>`}</td></tr>`).join("")}</table>`;
   const list = d.branches.filter((b) => !b.password);
-  const run = (b, a) => act(() => api("POST", `/api/versions/${encodeURIComponent(b.name)}/${a}`), t("ok.queued")).then(() => setTimeout(() => PAGE === pageVersions && pageVersions(), 800));
+  const run = (b, a) => act(() => api("POST", `api/versions/${encodeURIComponent(b.name)}/${a}`), t("ok.queued")).then(() => setTimeout(() => PAGE === pageVersions && pageVersions(), 800));
   $("#gvRefresh").onclick = async () => { await act(() => getVersions(true)); pageVersions(); };
   $$("[data-gi]", el).forEach((x) => x.onclick = () => run(list[x.dataset.gi], "install"));
   $$("[data-gv]", el).forEach((x) => x.onclick = () => run(list[x.dataset.gv], "validate"));
@@ -1315,9 +1315,9 @@ async function pageVersions() {
 // ------------------------------------------------------------------ page: panel settings
 async function pagePanel() {
   const el = $("#pageView");
-  const g = isAdmin() ? await act(() => api("GET", "/api/global")) : { self_update: {} };
+  const g = isAdmin() ? await act(() => api("GET", "api/global")) : { self_update: {} };
   if (!g || PAGE !== pagePanel) return;
-  const users = isAdmin() ? await act(() => api("GET", "/api/users")) : null;
+  const users = isAdmin() ? await act(() => api("GET", "api/users")) : null;
   const su = g.self_update || {};
   el.innerHTML = `<h2>${t("p.title")}</h2>
   ${users ? usersCard(users) : ""}
@@ -1340,9 +1340,9 @@ async function pagePanel() {
   <div class="card"><h3>${t("p.about")}</h3><p class="muted small">7edCore · <a href="https://github.com/${esc(OV.panel?.repo || "Koberecnikos/7edCore")}" target="_blank" rel="noopener">GitHub</a></p></div>`;
   initLangPickers();
   if (users) bindUsers(users);
-  if (!isAdmin()) { const pw0 = $("#pwSave"); if (pw0) pw0.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged")); return; }
-  $("#spPol").onchange = () => act(() => api("POST", "/api/selfupdate", { policy: $("#spPol").value }), t("ok.saved"));
-  api("GET", "/api/selfupdate/releases").then((r) => {
+  if (!isAdmin()) { const pw0 = $("#pwSave"); if (pw0) pw0.onclick = () => act(() => api("POST", "api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged")); return; }
+  $("#spPol").onchange = () => act(() => api("POST", "api/selfupdate", { policy: $("#spPol").value }), t("ok.saved"));
+  api("GET", "api/selfupdate/releases").then((r) => {
     const sel = $("#spVer"); if (!sel) return;
     sel.insertAdjacentHTML("beforeend", r.releases.map((x) => `<option value="${esc(x.version)}">${esc(x.version)}${x.version === r.current ? " · " + esc(t("p.running")) : ""}${x.prerelease ? " (pre-release)" : ""} - ${esc((x.published || "").slice(0, 10))}</option>`).join(""));
     sel.value = su.version || "latest";
@@ -1355,13 +1355,13 @@ async function pagePanel() {
     const v = $("#spVer").value, cur = OV.panel?.version || "";
     const older = v !== "latest" && /^\d/.test(cur) && v.split(".").map(Number).join(".") !== cur && v.localeCompare(cur, undefined, { numeric: true }) < 0;
     if (older && !await confirmDlg(t("p.downgradeQ", { v, c: cur }))) return;
-    act(() => api("POST", "/api/selfupdate", { version: v }), t("p.selfRequested"));
+    act(() => api("POST", "api/selfupdate", { version: v }), t("p.selfRequested"));
   };
-  const now = $("#spNow"); if (now) now.onclick = () => act(() => api("POST", "/api/selfupdate/now"), t("p.selfRequested"));
-  const pw = $("#pwSave"); if (pw) pw.onclick = () => act(() => api("POST", "/api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged"));
+  const now = $("#spNow"); if (now) now.onclick = () => act(() => api("POST", "api/selfupdate/now"), t("p.selfRequested"));
+  const pw = $("#pwSave"); if (pw) pw.onclick = () => act(() => api("POST", "api/password", { current: $("#pwCur").value, new: $("#pwNew").value }), t("p.pwChanged"));
   $("#tkSave").onclick = async () => {
     const b = {}; if ($("#tkGh").value) b.github_token = $("#tkGh").value; if ($("#tkNx").value) b.nexus_key = $("#tkNx").value;
-    if (await act(() => api("POST", "/api/global", b), t("ok.saved"))) pagePanel();
+    if (await act(() => api("POST", "api/global", b), t("ok.saved"))) pagePanel();
   };
 }
 
@@ -1393,16 +1393,16 @@ function bindUsers(d) {
   const toggleAll = (root, cls) => { const a = $(`.${cls}-all`, root); if (a) a.onchange = () => { $(`.${cls}-list`, root).hidden = a.checked; a.dispatchEvent(new Event("saved")); }; };
   $$("tr[data-u]").forEach((tr) => {
     const i = +tr.dataset.u, u = d.users[i], cls = "uSrv" + i;
-    const save = (body) => act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}`, body), t("ok.saved")).then(() => pagePanel());
+    const save = (body) => act(() => api("POST", `api/users/${encodeURIComponent(u.name)}`, body), t("ok.saved")).then(() => pagePanel());
     $(".uRole", tr).onchange = (e) => save({ role: e.target.value });
     toggleAll(tr, cls);
-    $$(`.${cls}, .${cls}-all`, tr).forEach((c) => c.addEventListener("change", () => act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}`, { servers: readServers(tr, cls) }), t("ok.saved"))));
+    $$(`.${cls}, .${cls}-all`, tr).forEach((c) => c.addEventListener("change", () => act(() => api("POST", `api/users/${encodeURIComponent(u.name)}`, { servers: readServers(tr, cls) }), t("ok.saved"))));
     $(".uPw", tr).onclick = async () => { const pw = await promptDlg(t("u.resetPw") + ": " + u.name, t("p.new")); if (pw) save({ password: pw }); };
-    const del = $(".uDel", tr); if (del) del.onclick = async () => { if (await confirmDlg(t("u.deleteQ", { n: u.name }))) act(() => api("POST", `/api/users/${encodeURIComponent(u.name)}/delete`), t("ok.saved")).then(() => pagePanel()); };
+    const del = $(".uDel", tr); if (del) del.onclick = async () => { if (await confirmDlg(t("u.deleteQ", { n: u.name }))) act(() => api("POST", `api/users/${encodeURIComponent(u.name)}/delete`), t("ok.saved")).then(() => pagePanel()); };
   });
   toggleAll($("#uNew"), "nuSrv");
   $("#nuAdd").onclick = async () => {
-    const r = await act(() => api("POST", "/api/users", { username: $("#nuName").value.trim(), password: $("#nuPw").value, role: $("#nuRole").value, servers: readServers($("#uNew"), "nuSrv") }), t("ok.saved"));
+    const r = await act(() => api("POST", "api/users", { username: $("#nuName").value.trim(), password: $("#nuPw").value, role: $("#nuRole").value, servers: readServers($("#uNew"), "nuSrv") }), t("ok.saved"));
     if (r) pagePanel();
   };
 }
